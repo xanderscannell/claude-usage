@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=800, initial-scale=1" />
+<title>Claude Usage</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,300..900&family=Martian+Mono:wdth,wght@75..112.5,300..700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="/src/styles.css" />
+</head>
+<body>
+  <div class="case">
+
+    <header class="rail" data-tauri-drag-region>
+      <div class="rail__id" data-tauri-drag-region>
+        <span class="rec" aria-hidden="true"></span>
+        <h1 class="wordmark">Claude Usage</h1>
+        <span class="silk silk--dim unit">MDL. 5H &middot; REV A</span>
+      </div>
+
+      <div class="rail__reset" data-tauri-drag-region>
+        <span class="silk silk--dim">Window resets in</span>
+        <span class="clock" id="reset-clock">0:00:00</span>
+      </div>
+
+      <div class="rail__ctl">
+        <button class="ctl" type="button" data-win="minimize" aria-label="Minimize window">
+          <svg viewBox="0 0 10 10" aria-hidden="true"><path d="M2 5h6" /></svg>
+        </button>
+        <button class="ctl ctl--close" type="button" data-win="close" aria-label="Close window">
+          <svg viewBox="0 0 10 10" aria-hidden="true"><path d="M2.5 2.5l5 5M7.5 2.5l-5 5" /></svg>
+        </button>
+      </div>
+    </header>
+
+    <main class="deck">
+      <section class="recorder" aria-labelledby="recorder-title">
+        <h2 class="sr-only" id="recorder-title">Five-hour rolling window, plotted by model</h2>
+        <div class="recorder__paper">
+          <svg class="chart" id="chart" viewBox="0 0 640 300" preserveAspectRatio="none" role="img"
+               aria-label="Usage against the five-hour limit over the last five hours, plotted per model."></svg>
+          <div class="pen" id="pen" aria-hidden="true">
+            
+            <span class="pen__nib"></span>
+          </div>
+        </div>
+      </section>
+
+      <aside class="carriage">
+        <div class="readout readout--hero">
+          <span class="readout__value" id="pct-value">0.0</span>
+          <span class="silk readout__label">% of 5-hour limit</span>
+        </div>
+
+        <div class="readout">
+          <span class="readout__value readout__value--sm">
+            <span id="burn-value">0.0</span><span class="readout__unit">k</span>
+          </span>
+          <span class="silk readout__label">tokens / min</span>
+        </div>
+
+        <div class="readout">
+          <span class="readout__value readout__value--sm" id="full-value">&mdash;:&mdash;&mdash;</span>
+          <span class="silk readout__label">to limit at this rate</span>
+        </div>
+      </aside>
+    </main>
+
+    <section class="pens" aria-label="Pen channels">
+      <button class="pen-ch" type="button" data-ch="opus" aria-pressed="true">
+        <span class="pen-ch__nib" style="--nib: var(--ui-blue)"></span>
+        <span class="pen-ch__name">Opus 4.5</span>
+        <span class="silk pen-ch__stat"><b>41.2</b>%</span>
+        <span class="pen-ch__bar"><i style="--nib: var(--ui-blue); --fill: 60%"></i></span>
+      </button>
+      <button class="pen-ch" type="button" data-ch="sonnet" aria-pressed="true">
+        <span class="pen-ch__nib" style="--nib: var(--ui-green)"></span>
+        <span class="pen-ch__name">Sonnet 4.6</span>
+        <span class="silk pen-ch__stat"><b>21.9</b>%</span>
+        <span class="pen-ch__bar"><i style="--nib: var(--ui-green); --fill: 32%"></i></span>
+      </button>
+      <button class="pen-ch" type="button" data-ch="haiku" aria-pressed="true">
+        <span class="pen-ch__nib" style="--nib: var(--ui-graphite)"></span>
+        <span class="pen-ch__name">Haiku 4.5</span>
+        <span class="silk pen-ch__stat"><b>5.3</b>%</span>
+        <span class="pen-ch__bar"><i style="--nib: var(--ui-graphite); --fill: 8%"></i></span>
+      </button>
+    </section>
+
+    <footer class="rail rail--foot">
+      <span class="silk silk--dim">Weekly</span>
+      <span class="segbar" id="segbar" aria-hidden="true"></span>
+      <span class="silk foot__pct"><b id="weekly-pct">58</b>%</span>
+      <span class="rail__rule"></span>
+      <span class="silk silk--dim">Resets Mon 00:00</span>
+      <span class="silk silk--dim foot__right">1.24M tokens &middot; 412 messages</span>
+    </footer>
+
+  </div>
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
