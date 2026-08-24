@@ -16,12 +16,12 @@
       <div class="rail__id" data-tauri-drag-region>
         <span class="rec" aria-hidden="true"></span>
         <h1 class="wordmark">Claude Usage</h1>
-        <span class="silk silk--dim unit">MDL. 5H &middot; REV A</span>
+        <span class="silk silk--dim unit" id="unit-mark">5-hour block</span>
       </div>
 
       <div class="rail__reset" data-tauri-drag-region>
-        <span class="silk silk--dim">Window resets in</span>
-        <span class="clock" id="reset-clock">0:00:00</span>
+        <span class="silk silk--dim" id="reset-label">Block resets in</span>
+        <span class="clock" id="reset-clock">—</span>
       </div>
 
       <div class="rail__ctl">
@@ -36,14 +36,11 @@
 
     <main class="deck">
       <section class="recorder" aria-labelledby="recorder-title">
-        <h2 class="sr-only" id="recorder-title">Five-hour rolling window, plotted by model</h2>
+        <h2 class="sr-only" id="recorder-title">Usage across the current 5-hour block, plotted by model</h2>
         <div class="recorder__paper">
-          <svg class="chart" id="chart" viewBox="0 0 640 300" preserveAspectRatio="none" role="img"
-               aria-label="Usage against the five-hour limit over the last five hours, plotted per model."></svg>
-          <div class="pen" id="pen" aria-hidden="true">
-            
-            <span class="pen__nib"></span>
-          </div>
+          <svg class="chart" id="chart" viewBox="0 0 640 300" role="img" aria-label="Loading usage."></svg>
+          <div class="pen" id="pen" aria-hidden="true"><span class="pen__nib"></span></div>
+          <p class="paper__empty" id="paper-empty" hidden>No block open</p>
         </div>
       </section>
 
@@ -55,49 +52,62 @@
 
         <div class="readout">
           <span class="readout__value readout__value--sm">
-            <span id="burn-value">0.0</span><span class="readout__unit">k</span>
+            <span id="burn-value">0.0</span><span class="readout__unit">%/hr</span>
           </span>
-          <span class="silk readout__label">tokens / min</span>
+          <span class="silk readout__label">of limit per hour</span>
         </div>
 
         <div class="readout">
-          <span class="readout__value readout__value--sm" id="full-value">&mdash;:&mdash;&mdash;</span>
+          <span class="readout__value readout__value--sm" id="full-value">—</span>
           <span class="silk readout__label">to limit at this rate</span>
         </div>
       </aside>
     </main>
 
-    <section class="pens" aria-label="Pen channels">
-      <button class="pen-ch" type="button" data-ch="opus" aria-pressed="true">
-        <span class="pen-ch__nib" style="--nib: var(--ui-blue)"></span>
-        <span class="pen-ch__name">Opus 4.5</span>
-        <span class="silk pen-ch__stat"><b>41.2</b>%</span>
-        <span class="pen-ch__bar"><i style="--nib: var(--ui-blue); --fill: 60%"></i></span>
-      </button>
-      <button class="pen-ch" type="button" data-ch="sonnet" aria-pressed="true">
-        <span class="pen-ch__nib" style="--nib: var(--ui-green)"></span>
-        <span class="pen-ch__name">Sonnet 4.6</span>
-        <span class="silk pen-ch__stat"><b>21.9</b>%</span>
-        <span class="pen-ch__bar"><i style="--nib: var(--ui-green); --fill: 32%"></i></span>
-      </button>
-      <button class="pen-ch" type="button" data-ch="haiku" aria-pressed="true">
-        <span class="pen-ch__nib" style="--nib: var(--ui-graphite)"></span>
-        <span class="pen-ch__name">Haiku 4.5</span>
-        <span class="silk pen-ch__stat"><b>5.3</b>%</span>
-        <span class="pen-ch__bar"><i style="--nib: var(--ui-graphite); --fill: 8%"></i></span>
-      </button>
-    </section>
+    <section class="pens" id="pens" aria-label="Pen channels"></section>
 
     <footer class="rail rail--foot">
-      <span class="silk silk--dim">Weekly</span>
+      <span class="silk silk--dim">7-day</span>
       <span class="segbar" id="segbar" aria-hidden="true"></span>
-      <span class="silk foot__pct"><b id="weekly-pct">58</b>%</span>
+      <span class="silk foot__pct"><b id="weekly-pct">—</b>%</span>
       <span class="rail__rule"></span>
-      <span class="silk silk--dim">Resets Mon 00:00</span>
-      <span class="silk silk--dim foot__right">1.24M tokens &middot; 412 messages</span>
+      <button class="link" type="button" id="calibrate-open">
+        <span class="silk" id="calibrate-state">Uncalibrated</span>
+      </button>
+      <span class="silk silk--dim foot__right" id="foot-right">—</span>
     </footer>
 
   </div>
+
+  <div class="sheet" id="sheet" hidden>
+    <form class="sheet__panel" id="calibrate-form" role="dialog" aria-modal="true" aria-labelledby="sheet-title">
+      <h2 class="sheet__title" id="sheet-title">Calibrate to your plan</h2>
+      <p class="sheet__body">
+        Nothing on this machine records your plan's ceiling. Run <b>/usage</b> in Claude Code
+        and enter what it reports — your tokens are already counted exactly, this just sets
+        what 100% means.
+      </p>
+
+      <div class="field">
+        <label class="silk" for="session-pct">Session (5-hour) %</label>
+        <input class="input" id="session-pct" type="number" min="0.5" max="100" step="0.1" placeholder="68" />
+      </div>
+      <div class="field">
+        <label class="silk" for="weekly-pct">Weekly %</label>
+        <input class="input" id="weekly-pct" type="number" min="0.5" max="100" step="0.1" placeholder="41" />
+      </div>
+
+      <p class="sheet__error" id="sheet-error" hidden></p>
+
+      <div class="sheet__actions">
+        <button class="btn btn--ghost" type="button" id="calibrate-clear">Clear</button>
+        <span class="sheet__spacer"></span>
+        <button class="btn btn--ghost" type="button" id="calibrate-cancel">Cancel</button>
+        <button class="btn btn--go" type="submit">Save</button>
+      </div>
+    </form>
+  </div>
+
   <script type="module" src="/src/main.js"></script>
 </body>
 </html>
