@@ -3,6 +3,8 @@
 
 const NS = "http://www.w3.org/2000/svg";
 const BUCKETS = 60;
+const BLOCK_MS = 5 * 60 * 60 * 1000;
+const BUCKET_MS = BLOCK_MS / BUCKETS;
 
 /* 100% sits at 100/112 of the plot height, leaving room for the
    over-range band above the limit line. */
@@ -55,7 +57,15 @@ export function drawChart({ svg, paper, penEl, snap, hidden, reduced }) {
   const y = (v) => y1 - (Math.min(v, Y_MAX) / Y_MAX) * (y1 - y0);
 
   const filled = snap.filledBuckets ?? 0;
-  const penX = x(filled);
+  /* The newest bucket is still filling, so its boundary sits ahead of
+     now. Putting the pen at the true elapsed position keeps the x axis
+     and the time axis in step - the projected crossing time is read off
+     that correspondence, so a boundary here skewed it by up to a bucket. */
+  const elapsed = snap.blockStartMs
+    ? Math.min(BUCKETS, Math.max(0, (snap.nowMs - snap.blockStartMs) / BUCKET_MS))
+    : filled;
+  const penX = x(elapsed);
+  const xAt = (i) => Math.min(x(i + 1), penX);
 
   /* --- printed scale ------------------------------------------- */
   const defs = el("defs");
@@ -105,11 +115,14 @@ export function drawChart({ svg, paper, penEl, snap, hidden, reduced }) {
     marks.append(el("text", { x: x0 - 7, y: y(v) + 2.6, "text-anchor": "end" }, String(v)));
   }
   if (snap.blockStartMs) {
+    // Hour-only labels are only honest when the block starts on the
+    // hour; otherwise every mark would read an hour early.
+    const onHour = new Date(snap.blockStartMs).getMinutes() === 0;
     for (let h = 0; h <= 5; h++) {
       marks.append(el("text", {
         x: x(h * 12), y: y1 + 12,
         "text-anchor": h === 0 ? "start" : h === 5 ? "end" : "middle",
-      }, clockLabel(snap.blockStartMs + h * 3_600_000)));
+      }, clockLabel(snap.blockStartMs + h * 3_600_000, !onHour)));
     }
   }
   svg.append(marks);
@@ -124,8 +137,8 @@ export function drawChart({ svg, paper, penEl, snap, hidden, reduced }) {
   for (const ch of [...order].reverse()) {
     const top = base.map((b, i) => b + (ch.values[i] ?? 0));
     if (!hidden.has(ch.id) && filled > 0) {
-      const up = top.map((v, i) => `${x(i + 1).toFixed(1)},${y(v).toFixed(1)}`);
-      const down = base.map((v, i) => `${x(i + 1).toFixed(1)},${y(v).toFixed(1)}`).reverse();
+      const up = top.map((v, i) => `${xAt(i).toFixed(1)},${y(v).toFixed(1)}`);
+      const down = base.map((v, i) => `${xAt(i).toFixed(1)},${y(v).toFixed(1)}`).reverse();
       ink.append(el("polygon", {
         points: [`${x(0).toFixed(1)},${y(0)}`, ...up, ...down].join(" "),
         fill: ch.ink, opacity: ch.wash,
@@ -143,7 +156,7 @@ export function drawChart({ svg, paper, penEl, snap, hidden, reduced }) {
   /* the total is its own pen, and it always writes */
   if (filled > 0) {
     ink.append(el("polyline", {
-      points: [`${x(0).toFixed(1)},${y(0)}`, ...base.map((v, i) => `${x(i + 1).toFixed(1)},${y(v).toFixed(1)}`)].join(" "),
+      points: [`${x(0).toFixed(1)},${y(0)}`, ...base.map((v, i) => `${xAt(i).toFixed(1)},${y(v).toFixed(1)}`)].join(" "),
       fill: "none", stroke: "var(--ink-graphite)",
       "stroke-width": 1.7, "stroke-linejoin": "round", "stroke-linecap": "round",
     }));
@@ -151,29 +164,50 @@ export function drawChart({ svg, paper, penEl, snap, hidden, reduced }) {
 
   /* --- where this block is heading ------------------------------ */
   const projected = snap.projectedEndPct ?? used;
-  if (snap.blockEndMs && filled < BUCKETS && projected > used + 0.05) {
-    ink.append(el("polyline", {
-      points: `${penX.toFixed(1)},${y(used).toFixed(1)} ${x(BUCKETS).toFixed(1)},${y(projected).toFixed(1)}`,
-      fill: "none", stroke: "var(--ink-graphite)", "stroke-width": 1.2,
-      "stroke-dasharray": "3 3", opacity: 0.5,
-    }));
+  const endX = x(BUCKETS);
+  const dash = { fill: "none", "stroke-dasharray": "3 3" };
 
-    // The moment the projection meets the ceiling is the whole point of
-    // the panel, so the recorder marks it on the paper.
+  if (snap.blockEndMs && penX < endX - 0.5 && projected > used + 0.05) {
     if (projected > 100 && used < 100) {
+      /* Usage cannot actually climb past the ceiling - you are held at
+         it - so the projection rises to 100% and then runs along it.
+         The red stretch is how long this block would spend rate
+         limited, which is why it ends at the reset and not before. */
       const t = (100 - used) / (projected - used);
-      const cx = penX + t * (x(BUCKETS) - penX);
+      const cx = penX + t * (endX - penX);
       const ct = snap.nowMs + t * (snap.blockEndMs - snap.nowMs);
-      ink.append(el("line", { x1: cx, y1: y(100) - 5, x2: cx, y2: y(100) + 5, stroke: "var(--grid)", "stroke-width": 1.4 }));
+      const nearRight = cx > (x0 + endX) / 2;
+
+      ink.append(el("polyline", {
+        points: `${penX.toFixed(1)},${y(used).toFixed(1)} ${cx.toFixed(1)},${y(100).toFixed(1)}`,
+        stroke: "var(--ink-graphite)", "stroke-width": 1.2, opacity: 0.55, ...dash,
+      }));
+      ink.append(el("polyline", {
+        points: `${cx.toFixed(1)},${y(100).toFixed(1)} ${endX.toFixed(1)},${y(100).toFixed(1)}`,
+        stroke: "var(--grid)", "stroke-width": 1.9, opacity: 0.9, ...dash,
+      }));
+      ink.append(el("line", {
+        x1: cx, y1: y(100) - 5, x2: cx, y2: y(100) + 5,
+        stroke: "var(--grid)", "stroke-width": 1.4,
+      }));
       ink.append(el("text", {
-        x: Math.min(cx + 6, x1 - 4), y: y(100) - 8,
-        "text-anchor": cx + 60 > x1 ? "end" : "start",
+        x: nearRight ? cx - 5 : cx + 5, y: y(100) - 8,
+        "text-anchor": nearRight ? "end" : "start",
         fill: "var(--grid)", "font-family": "var(--font-silk)",
         "font-size": 7, "font-weight": 700, "letter-spacing": "0.13em",
-      }, `LIMIT ${clockLabel(ct, true)}`));
+      }, `100% AT ${clockLabel(ct, true)}`));
+    } else if (used >= 100) {
+      ink.append(el("polyline", {
+        points: `${penX.toFixed(1)},${y(used).toFixed(1)} ${endX.toFixed(1)},${y(used).toFixed(1)}`,
+        stroke: "var(--grid)", "stroke-width": 1.9, opacity: 0.9, ...dash,
+      }));
     } else {
+      ink.append(el("polyline", {
+        points: `${penX.toFixed(1)},${y(used).toFixed(1)} ${endX.toFixed(1)},${y(projected).toFixed(1)}`,
+        stroke: "var(--ink-graphite)", "stroke-width": 1.2, opacity: 0.5, ...dash,
+      }));
       ink.append(el("text", {
-        x: x(BUCKETS) - 3, y: y(projected) - 7, "text-anchor": "end",
+        x: endX - 3, y: y(projected) - 7, "text-anchor": "end",
         fill: "var(--ink-graphite)", opacity: 0.72,
         "font-family": "var(--font-silk)", "font-size": 7, "font-weight": 600, "letter-spacing": "0.13em",
       }, `TRENDING ${projected.toFixed(0)}`));

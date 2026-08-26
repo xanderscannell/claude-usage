@@ -53,10 +53,26 @@ pub enum Error {
     NoCredentials,
     Expired,
     Unauthorized,
+    /// Throttled. Carries `Retry-After` seconds when the server sent one.
+    RateLimited(Option<i64>),
+    /// The endpoint answered, but not with a success status.
+    Unavailable(u16),
     // The panel shows only the short `Display` form, so these payloads
     // are read solely through `Debug` when diagnosing a failure.
     Offline(#[allow(dead_code)] String),
+    /// Reserved for a response we could not make sense of - which is the
+    /// only case that actually means the endpoint's shape moved.
     Unexpected(#[allow(dead_code)] String),
+}
+
+impl Error {
+    /// How long to wait before trying again, when the failure implies one.
+    pub fn retry_after_secs(&self) -> Option<i64> {
+        match self {
+            Self::RateLimited(after) => Some(after.unwrap_or(300).clamp(60, 3600)),
+            _ => None,
+        }
+    }
 }
 
 impl std::fmt::Display for Error {
@@ -65,6 +81,8 @@ impl std::fmt::Display for Error {
             Self::NoCredentials => write!(f, "Not signed in to Claude Code"),
             Self::Expired => write!(f, "Token expired · run Claude Code to refresh"),
             Self::Unauthorized => write!(f, "Token rejected · run Claude Code to refresh"),
+            Self::RateLimited(_) => write!(f, "Checking too often · backing off"),
+            Self::Unavailable(code) => write!(f, "Usage endpoint returned {code} · last known limit"),
             Self::Offline(_) => write!(f, "Offline · showing last known limit"),
             Self::Unexpected(_) => write!(f, "Usage endpoint changed · last known limit"),
         }
@@ -124,12 +142,20 @@ fn instant(v: &serde_json::Value) -> Option<i64> {
     chrono::DateTime::parse_from_rfc3339(v.as_str()?).ok().map(|d| d.timestamp())
 }
 
+/// The reset lands a fraction either side of the true boundary - we have
+/// seen both `07:59:59.9` and `08:00:00.1` for the same edge. Truncating
+/// that to an hour for an axis label loses a whole hour, so snap it to
+/// the nearest minute and keep the boundary exact.
+fn round_to_minute(ts: i64) -> i64 {
+    (ts as f64 / 60.0).round() as i64 * 60
+}
+
 fn window(v: Option<&serde_json::Value>) -> Option<Window> {
     let obj = v?;
     // This endpoint reports whole percent (25.0 means 25%), unlike the
     // `anthropic-ratelimit-*` response headers, which use a 0-1 fraction.
     let pct = obj.get("utilization")?.as_f64()?;
-    Some(Window { pct, resets_at: instant(obj.get("resets_at")?)? })
+    Some(Window { pct, resets_at: round_to_minute(instant(obj.get("resets_at")?)?) })
 }
 
 fn parse(body: &str) -> Result<Usage, Error> {
@@ -178,7 +204,10 @@ fn fetch_raw() -> Result<String, Error> {
     match response {
         Ok(r) => r.into_string().map_err(|e| Error::Unexpected(e.to_string())),
         Err(ureq::Error::Status(401 | 403, _)) => Err(Error::Unauthorized),
-        Err(ureq::Error::Status(code, _)) => Err(Error::Unexpected(format!("HTTP {code}"))),
+        Err(ureq::Error::Status(429, r)) => Err(Error::RateLimited(
+            r.header("retry-after").and_then(|v| v.trim().parse::<i64>().ok()),
+        )),
+        Err(ureq::Error::Status(code, _)) => Err(Error::Unavailable(code)),
         Err(ureq::Error::Transport(t)) => Err(Error::Offline(t.to_string())),
     }
 }
@@ -220,8 +249,41 @@ mod tests {
         assert!((fh.pct - 25.0).abs() < 1e-9, "whole percent, not a fraction: {}", fh.pct);
         // 2026-08-26T08:00:00Z
         assert_eq!(fh.resets_at, 1787731200);
+
+        // A reset a second early must land on the same boundary, or the
+        // hour labels drawn from it slip a whole hour.
+        let early = parse(
+            r#"{"five_hour":{"utilization":25.0,"resets_at":"2026-08-26T07:59:59.910000+00:00"}}"#,
+        ).unwrap();
+        assert_eq!(early.five_hour.unwrap().resets_at, 1787731200,
+            "07:59:59.9 and 08:00:00.1 are the same block edge");
         assert!((u.seven_day.unwrap().pct - 33.0).abs() < 1e-9);
         assert!(u.seven_day_opus.is_none(), "absent windows stay absent");
+    }
+
+    /// Being throttled is not the endpoint changing shape, and saying so
+    /// sends you looking for a break that is not there.
+    #[test]
+    fn failures_are_named_for_what_they_are() {
+        let throttled = Error::RateLimited(Some(90));
+        assert!(throttled.to_string().contains("too often"));
+        assert_eq!(throttled.retry_after_secs(), Some(90));
+
+        // No Retry-After still backs off, and absurd values are clamped.
+        assert_eq!(Error::RateLimited(None).retry_after_secs(), Some(300));
+        assert_eq!(Error::RateLimited(Some(1)).retry_after_secs(), Some(60));
+        assert_eq!(Error::RateLimited(Some(99_999)).retry_after_secs(), Some(3600));
+
+        // Only a response we cannot parse means the shape moved.
+        assert!(Error::Unexpected("bad json".into()).to_string().contains("changed"));
+        assert!(Error::Unavailable(503).to_string().contains("503"));
+        assert!(!Error::Unavailable(503).to_string().contains("changed"));
+
+        // Everything else retries on the caller's normal schedule.
+        for e in [Error::NoCredentials, Error::Expired, Error::Unauthorized,
+                  Error::Offline("dns".into()), Error::Unexpected("x".into())] {
+            assert_eq!(e.retry_after_secs(), None, "{e} should not set a backoff");
+        }
     }
 
     #[test]

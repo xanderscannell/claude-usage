@@ -18,6 +18,8 @@ struct Live {
     fetched_at_ms: i64,
     usage: Option<oauth::Usage>,
     error: Option<String>,
+    /// Overrides the retry window when a failure asked us to wait.
+    retry_after_ms: Option<i64>,
 }
 
 #[derive(Default)]
@@ -52,23 +54,29 @@ async fn live_usage(state: &State<'_, App>) -> (Option<oauth::Usage>, Option<Str
             Err(_) => return (None, Some("Live usage unavailable.".into())),
         };
         let age = now - cache.fetched_at_ms;
-        let ttl = if cache.usage.is_some() { LIVE_TTL_MS } else { LIVE_RETRY_MS };
+        let ttl = cache
+            .retry_after_ms
+            .unwrap_or(if cache.usage.is_some() { LIVE_TTL_MS } else { LIVE_RETRY_MS });
         if cache.fetched_at_ms > 0 && age < ttl {
             return (cache.usage.clone(), cache.error.clone());
         }
     }
 
     let fetched = tauri::async_runtime::spawn_blocking(oauth::fetch).await;
-    let (usage, error) = match fetched {
-        Ok(Ok(u)) => (Some(u), None),
-        Ok(Err(e)) => (None, Some(e.to_string())),
-        Err(e) => (None, Some(format!("Live usage task failed: {e}"))),
+    let (usage, error, retry_after_ms) = match fetched {
+        Ok(Ok(u)) => (Some(u), None, None),
+        Ok(Err(e)) => {
+            let wait = e.retry_after_secs().map(|s| s * 1000);
+            (None, Some(e.to_string()), wait)
+        }
+        Err(e) => (None, Some(format!("Live usage task failed: {e}")), None),
     };
 
     if let Ok(mut cache) = state.live.lock() {
         cache.fetched_at_ms = now;
         cache.usage = usage.clone();
         cache.error = error.clone();
+        cache.retry_after_ms = retry_after_ms;
     }
     (usage, error)
 }
@@ -278,5 +286,56 @@ mod tests {
         assert_eq!(blocks::label_for("claude-opus-5"), "Opus 5");
         assert_eq!(blocks::label_for("claude-haiku-4-5-20251001"), "Haiku 4.5");
         assert_eq!(blocks::label_for("claude-sonnet-5"), "Sonnet 5");
+    }
+}
+
+#[cfg(test)]
+mod diagnose {
+    use super::*;
+    use blocks::Inputs;
+
+    /// Prints every time-related figure the panel derives, so a
+    /// disagreement between two readouts can be traced to its source.
+    /// `cargo test -- --ignored --nocapture diagnose`
+    #[test]
+    #[ignore]
+    fn time_readouts() {
+        let root = usage::projects_dir().expect("projects dir");
+        let ev = usage::Scanner::default().scan(&root);
+        let live = oauth::fetch().ok();
+        let now = now_ms();
+        let snap = blocks::build(Inputs {
+            events: &ev,
+            now_ms: now,
+            limit: 1.0,
+            weekly_limit: 1.0,
+            session_known: false,
+            weekly_known: false,
+            live: live.as_ref(),
+        });
+
+        let hm = |ms: i64| {
+            let d = (ms - now) as f64 / 3_600_000.0;
+            format!("{d:+.2}h")
+        };
+        eprintln!("source          = {:?}", snap.source);
+        eprintln!("now             = {now}");
+        eprintln!("block_start     = {:?} {}", snap.block_start_ms, snap.block_start_ms.map(hm).unwrap_or_default());
+        eprintln!("block_end       = {:?} {}", snap.block_end_ms, snap.block_end_ms.map(hm).unwrap_or_default());
+        eprintln!("resets_in       = {} s = {:.2}h", snap.resets_in_seconds, snap.resets_in_seconds as f64 / 3600.0);
+        eprintln!("used_pct        = {:.2}", snap.used_pct);
+        eprintln!("burn_pct_per_hr = {:.2}", snap.burn_pct_per_hour);
+        eprintln!("minutes_to_limit= {:?}", snap.minutes_to_limit);
+        eprintln!("projected_end   = {:.2}", snap.projected_end_pct);
+        eprintln!("filled_buckets  = {} of {}", snap.filled_buckets, blocks::BUCKETS);
+
+        // What the chart draws for the crossing marker.
+        if let (Some(end), true) = (snap.block_end_ms, snap.projected_end_pct > 100.0) {
+            let t = (100.0 - snap.used_pct) / (snap.projected_end_pct - snap.used_pct);
+            let ct = now as f64 + t * (end - now) as f64;
+            eprintln!("chart crossing  = {:+.2}h from now (t={t:.4})", (ct - now as f64) / 3_600_000.0);
+            eprintln!("readout says    = {:?} min = {:.2}h",
+                snap.minutes_to_limit, snap.minutes_to_limit.unwrap_or(0) as f64 / 60.0);
+        }
     }
 }

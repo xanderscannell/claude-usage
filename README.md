@@ -50,7 +50,10 @@ and footer always say which is in play.
 
 **Live.** Claude Code renders `/usage` by calling `GET /api/oauth/usage` with the
 OAuth token in `~/.claude/.credentials.json`; the panel reads the same endpoint.
-True percentage, true reset instant, solved limit.
+True percentage, true reset instant, solved limit. The reported reset lands a
+fraction either side of the real boundary — both `07:59:59.9` and `08:00:00.1`
+show up for the same edge — so it is snapped to the nearest minute. Truncating
+that to an hour for an axis label loses a whole hour.
 
 **Remembered.** The solved limit is kept, so losing the network drops the panel to
 the last known real limit rather than to a guess.
@@ -72,9 +75,13 @@ Constraints on the credential path:
   and it refreshes itself.
 - **The token goes to one host** and is never logged, returned through a command,
   or put in an error message. A failed parse names only the windows we looked for.
-- **Every failure is soft**, cached for a minute on success and two on failure.
-  The endpoint is undocumented: it can change or vanish, and the panel has to keep
-  working from local logs when it does.
+- **Every failure is soft**, cached for a minute on success and two on failure,
+  or for whatever `Retry-After` asks when throttled. The endpoint is undocumented:
+  it can change or vanish, and the panel has to keep working from local logs when
+  it does.
+- **Failures are named for what they are.** Only a response we cannot parse reports
+  that the endpoint changed; a 429 says it is being checked too often and a 5xx
+  reports the status. Conflating those sends you hunting a break that is not there.
 - `HTTPS_PROXY` and friends are honoured, so a proxied network does not become the
   one case where `/usage` works and the panel does not.
 
