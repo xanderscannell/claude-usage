@@ -108,6 +108,12 @@ One motion moment on load; `prefers-reduced-motion` turns it all off.
 
 ## Notes
 
+- The webview runs under a strict CSP: `script-src 'self'`, `object-src 'none'`,
+  and network limited to the IPC channel plus Google Fonts. `style-src` still
+  allows `'unsafe-inline'` because Vite injects `<style>` blocks in dev; vendoring
+  the fonts would let that come out too. `freezePrototype` is on, and the app is
+  granted no filesystem, shell, or HTTP plugin permissions — only window
+  close/minimize/drag.
 - Window chrome is drawn by the frontend (`decorations: false`), so the title rail
   is the drag region and carries its own minimize/close.
 - Window controls use `withGlobalTauri`, so there is no JS dependency on Tauri and

@@ -139,9 +139,13 @@ fn parse(body: &str) -> Result<Usage, Error> {
         seven_day_opus: window(v.get("seven_day_opus")),
     };
     if usage.is_empty() {
-        // Report the field names only; the body may carry account details.
-        let keys: Vec<&str> = v.as_object().map(|o| o.keys().map(|k| k.as_str()).collect()).unwrap_or_default();
-        return Err(Error::Unexpected(format!("no rate limit windows in {keys:?}")));
+        // Name only the windows we looked for. The body also carries
+        // unrelated account fields, and echoing those into the UI would
+        // surface detail with no diagnostic value; `live_shape` is the
+        // developer-facing way to inspect the real response.
+        return Err(Error::Unexpected(
+            "no five_hour or seven_day window in the response".into(),
+        ));
     }
     Ok(usage)
 }
@@ -156,7 +160,12 @@ pub fn fetch() -> Result<Usage, Error> {
 fn fetch_raw() -> Result<String, Error> {
     let token = read_token()?;
 
-    let response = ureq::get(ENDPOINT)
+    // ureq drops auth headers across redirects by default, but this
+    // endpoint answers directly: refusing to follow one at all keeps the
+    // token off any other host regardless of that default.
+    let agent = ureq::AgentBuilder::new().redirects(0).build();
+    let response = agent
+        .get(ENDPOINT)
         .timeout(TIMEOUT)
         .set("Authorization", &format!("Bearer {token}"))
         .set("Content-Type", "application/json")

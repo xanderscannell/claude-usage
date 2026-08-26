@@ -65,11 +65,23 @@ function paintPens() {
       btn.className = "pen-ch";
       btn.dataset.ch = s.id;
       btn.setAttribute("aria-pressed", String(!hidden.has(s.id)));
-      btn.innerHTML =
-        `<span class="pen-ch__nib" style="--nib: ${nib}"></span>` +
-        `<span class="pen-ch__name"></span>` +
-        `<span class="silk pen-ch__stat"><b></b>%</span>` +
-        `<span class="pen-ch__bar"><i style="--nib: ${nib}"></i></span>`;
+      // Built with DOM calls rather than innerHTML: nothing here is
+      // attacker-controlled today, but a label read off disk is one
+      // careless edit away from being interpolated into markup.
+      const part = (cls, tag = "span") => {
+        const n = document.createElement(tag);
+        n.className = cls;
+        return n;
+      };
+      const swatch = part("pen-ch__nib");
+      swatch.style.setProperty("--nib", nib);
+      const stat = part("silk pen-ch__stat");
+      stat.append(document.createElement("b"), "%");
+      const bar = part("pen-ch__bar");
+      const fill = document.createElement("i");
+      fill.style.setProperty("--nib", nib);
+      bar.append(fill);
+      btn.append(swatch, part("pen-ch__name"), stat, bar);
       btn.addEventListener("click", () => {
         const off = hidden.has(s.id);
         off ? hidden.delete(s.id) : hidden.add(s.id);
