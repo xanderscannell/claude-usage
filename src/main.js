@@ -1,4 +1,4 @@
-import { getSnapshot, calibrate, resetCalibration, live } from "./api.js";
+import { getSnapshot, live } from "./api.js";
 import { drawChart, UI_INKS } from "./chart.js";
 
 const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -124,8 +124,8 @@ function paintFooter() {
   $("weekly-label").textContent = wr ? "Weekly" : "7-day";
   $("weekly-reset").textContent = wr ? `resets ${dayLabel(wr)}` : "";
 
-  const state = $("calibrate-state");
-  state.textContent = { live: "Live", calibrated: "Calibrated", estimated: "Calibrate" }[snap.source];
+  const state = $("source-state");
+  state.textContent = { live: "Live", remembered: "Remembered", estimated: "Estimated" }[snap.source];
   state.classList.toggle("silk--warn", snap.source === "estimated");
   state.classList.toggle("silk--live", snap.source === "live");
 
@@ -159,11 +159,13 @@ function render() {
         ? "Clear"
         : "—";
 
-  $("unit-mark").textContent = {
-    live: `Live · limit ${compact(snap.limitTokens)}`,
-    calibrated: `Calibrated · limit ${compact(snap.limitTokens)}`,
-    estimated: "Estimated · scaled to your busiest block",
-  }[snap.source];
+  // With no sheet to open, the title rail is where the reason lives.
+  $("unit-mark").textContent = snap.source === "live"
+    ? `Live · limit ${compact(snap.limitTokens)}`
+    : snap.liveError
+      ?? (snap.source === "remembered"
+        ? `Last known limit ${compact(snap.limitTokens)}`
+        : "Estimated · scaled to your busiest block");
   // The lamp records live telemetry, so it goes dark when there is none.
   document.querySelector(".rec").classList.toggle("rec--dark", snap.source !== "live");
 
@@ -178,78 +180,6 @@ function render() {
   paintPens();
   paintFooter();
   paintClock();
-}
-
-/* -- calibration sheet -------------------------------------------- */
-
-function openSheet() {
-  $("sheet-lede").textContent = snap?.source === "live"
-    ? "Claude Code's usage endpoint is answering, so the limit is already exact and nothing here is needed. You can still pin it by hand if you want to override."
-    : "Nothing on this machine records your plan's ceiling. Run /usage in Claude Code and enter what it reports — your tokens are already counted exactly, this just sets what 100% means.";
-  const err = snap?.liveError;
-  if (err && snap?.source !== "live") {
-    $("sheet-error").textContent = err;
-    $("sheet-error").hidden = false;
-  } else {
-    $("sheet-error").hidden = true;
-  }
-  $("session-pct").value = "";
-  $("weekly-pct").value = "";
-  $("calibrate-clear").hidden = snap?.source !== "calibrated";
-  $("sheet").hidden = false;
-  $("session-pct").focus();
-}
-
-function closeSheet() {
-  $("sheet").hidden = true;
-  $("calibrate-open").focus();
-}
-
-function fail(message) {
-  const node = $("sheet-error");
-  node.textContent = String(message).replace(/^Error:\s*/, "");
-  node.hidden = false;
-}
-
-function wireSheet() {
-  $("calibrate-open").addEventListener("click", openSheet);
-  $("calibrate-cancel").addEventListener("click", closeSheet);
-
-  $("calibrate-clear").addEventListener("click", async () => {
-    try {
-      snap = await resetCalibration();
-      render();
-      closeSheet();
-    } catch (e) {
-      fail(e);
-    }
-  });
-
-  $("calibrate-form").addEventListener("submit", async (e) => {
-    e.preventDefault();
-    const num = (id) => {
-      const raw = $(id).value.trim();
-      return raw === "" ? null : Number(raw);
-    };
-    const sessionPct = num("session-pct");
-    const weeklyPct = num("weekly-pct");
-    if (sessionPct == null && weeklyPct == null) {
-      fail("Enter at least one percentage from /usage.");
-      return;
-    }
-    try {
-      snap = await calibrate({ sessionPct, weeklyPct });
-      resetLeft = snap.resetsInSeconds;
-      render();
-      closeSheet();
-    } catch (err) {
-      fail(err);
-    }
-  });
-
-  addEventListener("keydown", (e) => {
-    if (e.key === "Escape" && !$("sheet").hidden) closeSheet();
-  });
 }
 
 function wireWindowControls() {
@@ -278,7 +208,6 @@ async function poll() {
 }
 
 async function boot() {
-  wireSheet();
   wireWindowControls();
   if (!live) document.body.classList.add("is-demo");
   await poll();

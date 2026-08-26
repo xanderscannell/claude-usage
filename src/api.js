@@ -15,12 +15,3 @@ export async function getSnapshot() {
   return call("get_snapshot");
 }
 
-export async function calibrate({ sessionPct, weeklyPct }) {
-  if (!live) return mockSnapshot();
-  return call("calibrate", { sessionPct, weeklyPct });
-}
-
-export async function resetCalibration() {
-  if (!live) return mockSnapshot();
-  return call("reset_calibration");
-}

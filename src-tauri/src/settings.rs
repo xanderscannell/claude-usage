@@ -1,11 +1,13 @@
-//! Calibration store.
+//! Remembers the limit solved from the live usage endpoint.
 //!
-//! Nothing local records what your plan's ceiling actually is, so the
-//! user reads the real percentage out of Claude Code's `/usage` once and
-//! we solve for the limit from the tokens we counted over the same
-//! period. Until then we fall back to the busiest block on record, which
-//! makes the panel useful immediately but reads as "relative to your own
-//! high-water mark" rather than a true plan limit.
+//! Nothing on disk records what your plan's ceiling is, but the endpoint
+//! reports the percentage spent, and dividing our own token count by it
+//! yields the limit. Keeping that value means losing the network drops
+//! the panel to the last known real limit rather than to a guess.
+//!
+//! There is deliberately no hand-entered fallback: reading a percentage
+//! out of `/usage` needs the same token and network the endpoint itself
+//! needs, so anything a person could type in, the app could have fetched.
 
 use crate::blocks::BLOCK_MS;
 use crate::usage::Event;
@@ -20,14 +22,12 @@ const PROVISIONAL_HEADROOM: f64 = 1.05;
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Settings {
-    /// Entered by hand from `/usage`.
-    pub limit_tokens: Option<f64>,
-    pub weekly_limit_tokens: Option<f64>,
     /// Solved from the live endpoint, so the last known real limit
-    /// survives going offline. Manual values still win.
+    /// survives going offline. Unknown fields from older versions -
+    /// including the hand-entered limits this replaced - are dropped on
+    /// the next write.
     pub auto_limit_tokens: Option<f64>,
     pub auto_weekly_limit_tokens: Option<f64>,
-    pub calibrated_at_ms: Option<i64>,
 }
 
 fn path(dir: &Path) -> PathBuf {
@@ -87,13 +87,12 @@ pub fn busiest_week(events: &[Event]) -> f64 {
     best
 }
 
-/// The limit to render with, in order of trust: entered by hand, then
-/// solved from a previous live reading, then the observed high-water
-/// mark plus headroom.
+/// The limit to render with: the one solved from a previous live
+/// reading, else the observed high-water mark plus headroom.
 pub fn effective(settings: &Settings, events: &[Event]) -> (f64, f64, bool, bool) {
     let positive = |v: Option<f64>| v.filter(|x| *x > 0.0);
-    let session_known = positive(settings.limit_tokens).or(positive(settings.auto_limit_tokens));
-    let weekly_known = positive(settings.weekly_limit_tokens).or(positive(settings.auto_weekly_limit_tokens));
+    let session_known = positive(settings.auto_limit_tokens);
+    let weekly_known = positive(settings.auto_weekly_limit_tokens);
     let session = session_known.unwrap_or_else(|| (busiest_block(events) * PROVISIONAL_HEADROOM).max(1.0));
     let weekly = weekly_known.unwrap_or_else(|| (busiest_week(events) * PROVISIONAL_HEADROOM).max(1.0));
     (session, weekly, session_known.is_some(), weekly_known.is_some())

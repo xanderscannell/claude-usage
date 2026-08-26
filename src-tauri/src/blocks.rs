@@ -10,8 +10,8 @@
 //! and the per-model split, which nothing else can. When Claude Code's
 //! usage endpoint is reachable it supplies the truth on top: the real
 //! percentage, the real reset instant, and - by dividing our own token
-//! count by that percentage - the real limit, with nothing to calibrate
-//! by hand.
+//! count by that percentage - the real limit. Nothing is ever entered by
+//! hand.
 
 use crate::oauth;
 use crate::usage::Event;
@@ -32,8 +32,8 @@ const MIN_PCT_FOR_DERIVATION: f64 = 0.5;
 pub enum Source {
     /// Claude Code's usage endpoint: exact.
     Live,
-    /// A limit the user entered once from `/usage`.
-    Calibrated,
+    /// A limit solved from an earlier live reading.
+    Remembered,
     /// Scaled to the busiest block on record.
     Estimated,
 }
@@ -43,8 +43,8 @@ pub struct Inputs<'a> {
     pub now_ms: i64,
     pub limit: f64,
     pub weekly_limit: f64,
-    pub session_calibrated: bool,
-    pub weekly_calibrated: bool,
+    pub session_known: bool,
+    pub weekly_known: bool,
     pub live: Option<&'a oauth::Usage>,
 }
 
@@ -196,9 +196,9 @@ pub fn build(input: Inputs<'_>) -> Snapshot {
         .map(|w| counted / (w.pct / 100.0));
 
     let limit = derived_limit.unwrap_or(input.limit).max(1.0);
-    let source = match (five.is_some(), input.session_calibrated) {
+    let source = match (five.is_some(), input.session_known) {
         (true, _) => Source::Live,
-        (false, true) => Source::Calibrated,
+        (false, true) => Source::Remembered,
         (false, false) => Source::Estimated,
     };
     let used_pct = match five {
@@ -297,9 +297,9 @@ pub fn build(input: Inputs<'_>) -> Snapshot {
         messages: in_block.len(),
         raw_tokens: totals.values().map(|v| v.1).sum(),
         weekly: Weekly {
-            source: match (seven.is_some(), input.weekly_calibrated) {
+            source: match (seven.is_some(), input.weekly_known) {
                 (true, _) => Source::Live,
-                (false, true) => Source::Calibrated,
+                (false, true) => Source::Remembered,
                 (false, false) => Source::Estimated,
             },
             pct: match seven {

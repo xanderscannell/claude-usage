@@ -53,18 +53,20 @@ pub enum Error {
     NoCredentials,
     Expired,
     Unauthorized,
-    Offline(String),
-    Unexpected(String),
+    // The panel shows only the short `Display` form, so these payloads
+    // are read solely through `Debug` when diagnosing a failure.
+    Offline(#[allow(dead_code)] String),
+    Unexpected(#[allow(dead_code)] String),
 }
 
 impl std::fmt::Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::NoCredentials => write!(f, "Not signed in to Claude Code on this machine."),
-            Self::Expired => write!(f, "Claude Code's token has expired. Run any Claude Code command to refresh it."),
-            Self::Unauthorized => write!(f, "Claude Code's token was rejected. Run any Claude Code command to refresh it."),
-            Self::Offline(why) => write!(f, "Could not reach the usage endpoint: {why}"),
-            Self::Unexpected(why) => write!(f, "Unexpected response from the usage endpoint: {why}"),
+            Self::NoCredentials => write!(f, "Not signed in to Claude Code"),
+            Self::Expired => write!(f, "Token expired · run Claude Code to refresh"),
+            Self::Unauthorized => write!(f, "Token rejected · run Claude Code to refresh"),
+            Self::Offline(_) => write!(f, "Offline · showing last known limit"),
+            Self::Unexpected(_) => write!(f, "Usage endpoint changed · last known limit"),
         }
     }
 }
@@ -259,7 +261,7 @@ mod live_tests {
                     }
                 }
             }
-            Err(e) => eprintln!("LIVE FETCH FAILED: {e}"),
+            Err(e) => eprintln!("LIVE FETCH FAILED: {e} [{e:?}]"),
         }
     }
 

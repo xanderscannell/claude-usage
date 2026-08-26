@@ -43,37 +43,40 @@ recorder marks the clock time it happens.
 
 ## Where 100% comes from
 
-Three sources, in order of trust. The title rail and the footer always say which
-one is in play.
+Nothing on disk records your plan's ceiling. The endpoint reports the percentage
+spent, so dividing our own token count by it solves for the limit — which means
+**there is nothing to calibrate**. Three sources, in order of trust; the title rail
+and footer always say which is in play.
 
-**Live.** Claude Code reaches `GET /api/oauth/usage` with the OAuth token in
-`~/.claude/.credentials.json` to render `/usage`; the panel reads the same
-endpoint. That gives the true percentage and the true reset instant, and dividing
-our own token count by that percentage solves for the real limit — so there is
-nothing to calibrate. On this machine the endpoint reported a limit of 6.31M
-weighted tokens against a busiest-block estimate of 17.1M, an error of ~2.7x.
+**Live.** Claude Code renders `/usage` by calling `GET /api/oauth/usage` with the
+OAuth token in `~/.claude/.credentials.json`; the panel reads the same endpoint.
+True percentage, true reset instant, solved limit.
 
-Deliberate constraints on that path:
+**Remembered.** The solved limit is kept, so losing the network drops the panel to
+the last known real limit rather than to a guess.
+
+**Estimated.** Before any live reading has ever succeeded, it scales to the
+busiest block on record. On this machine that guessed 17.1M against a real 6.31M —
+a 2.7x error — so treat it as a shape, not a number. The title rail says so.
+
+There is deliberately **no hand-entered fallback**. Reading a percentage out of
+`/usage` needs the same token and the same network the endpoint itself needs, so
+anything a person could type in, the app could have fetched. A calibration form
+would only ever be a slower path to a number already in reach.
+
+Constraints on the credential path:
 
 - **Read only.** The credentials file is never written. Refresh tokens normally
   rotate, so refreshing here without persisting could invalidate the CLI's own
   login. An expired token is reported, not repaired — run any Claude Code command
   and it refreshes itself.
 - **The token goes to one host** and is never logged, returned through a command,
-  or put in an error message. Parse failures report field names, not values.
+  or put in an error message. A failed parse names only the windows we looked for.
 - **Every failure is soft**, cached for a minute on success and two on failure.
-  This endpoint is undocumented: it can change or vanish, and the panel has to
-  keep working from local logs when it does.
-
-**Calibrated.** If the endpoint is unreachable, run `/usage`, click **Calibrate**,
-and enter the percentage. The limit is solved from the tokens counted over the
-same block and stored in the app config directory. A limit solved from a previous
-live reading is kept for the same purpose, so going offline degrades to the last
-known real limit rather than to a guess.
-
-**Estimated.** With neither, it scales to your busiest block on record — useful
-immediately, but relative to your own high-water mark rather than your plan. As
-the 2.7x above shows, treat it as a shape, not a number.
+  The endpoint is undocumented: it can change or vanish, and the panel has to keep
+  working from local logs when it does.
+- `HTTPS_PROXY` and friends are honoured, so a proxied network does not become the
+  one case where `/usage` works and the panel does not.
 
 ## Design
 
@@ -99,12 +102,12 @@ One motion moment on load; `prefers-reduced-motion` turns it all off.
 | | |
 | --- | --- |
 | [src/chart.js](src/chart.js) | the paper — scale, pens, projection |
-| [src/main.js](src/main.js) | polling, readouts, calibration sheet |
+| [src/main.js](src/main.js) | polling, readouts, status |
 | [src/api.js](src/api.js) | IPC, with a synthetic fallback for browser dev |
 | [src-tauri/src/usage.rs](src-tauri/src/usage.rs) | log scanning, dedup, weighting |
 | [src-tauri/src/blocks.rs](src-tauri/src/blocks.rs) | block detection, snapshot |
 | [src-tauri/src/oauth.rs](src-tauri/src/oauth.rs) | live usage endpoint |
-| [src-tauri/src/settings.rs](src-tauri/src/settings.rs) | calibration store |
+| [src-tauri/src/settings.rs](src-tauri/src/settings.rs) | remembers the solved limit |
 
 ## Notes
 

@@ -44,7 +44,7 @@ export function mockSnapshot() {
 
   return {
     source: "estimated",
-    liveError: "Running in a browser, so there is no live endpoint.",
+    liveError: "Offline · showing last known limit",
     limitTokens: 17_148_739,
     blockStartMs: start,
     blockEndMs: start + BLOCK_MS,

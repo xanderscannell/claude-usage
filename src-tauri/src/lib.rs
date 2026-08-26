@@ -81,15 +81,15 @@ fn assemble(
 ) -> Result<Snapshot, String> {
     let dir = config_dir(state)?;
     let cfg = settings::load(&dir);
-    let (limit, weekly_limit, cal_s, cal_w) = settings::effective(&cfg, events);
+    let (limit, weekly_limit, known_s, known_w) = settings::effective(&cfg, events);
 
     let mut snap = blocks::build(blocks::Inputs {
         events,
         now_ms: now_ms(),
         limit,
         weekly_limit,
-        session_calibrated: cal_s,
-        weekly_calibrated: cal_w,
+        session_known: known_s,
+        weekly_known: known_w,
         live,
     });
 
@@ -106,69 +106,6 @@ async fn get_snapshot(state: State<'_, App>) -> Result<Snapshot, String> {
     assemble(&state, &events, live.as_ref(), live_error)
 }
 
-/// Solves for the limit from the percentage `/usage` reports, for when
-/// the live endpoint cannot be reached. `session_pct` is the 5-hour
-/// figure and `weekly_pct` the weekly one; either may be omitted.
-#[tauri::command]
-async fn calibrate(
-    state: State<'_, App>,
-    session_pct: Option<f64>,
-    weekly_pct: Option<f64>,
-) -> Result<Snapshot, String> {
-    let events = read_events(&state)?;
-    let dir = config_dir(&state)?;
-    let mut cfg = settings::load(&dir);
-    let now = now_ms();
-
-    if let Some(pct) = session_pct {
-        if !(0.5..=100.0).contains(&pct) {
-            return Err("Enter the session percentage /usage shows, between 0.5 and 100.".into());
-        }
-        let start = blocks::active_block_start(&events, now)
-            .ok_or("No block is open right now, so there is nothing to calibrate against. Send a message first.")?;
-        let counted: f64 = events
-            .iter()
-            .filter(|e| e.ts_ms >= start && e.ts_ms < start + blocks::BLOCK_MS)
-            .map(|e| e.weighted)
-            .sum();
-        if counted <= 0.0 {
-            return Err("No usage counted in the current block yet.".into());
-        }
-        cfg.limit_tokens = Some(counted / (pct / 100.0));
-    }
-
-    if let Some(pct) = weekly_pct {
-        if !(0.5..=100.0).contains(&pct) {
-            return Err("Enter the weekly percentage /usage shows, between 0.5 and 100.".into());
-        }
-        let week_ms = 7 * 24 * 60 * 60 * 1000;
-        let counted: f64 = events
-            .iter()
-            .filter(|e| e.ts_ms > now - week_ms)
-            .map(|e| e.weighted)
-            .sum();
-        if counted <= 0.0 {
-            return Err("No usage counted in the last seven days yet.".into());
-        }
-        cfg.weekly_limit_tokens = Some(counted / (pct / 100.0));
-    }
-
-    cfg.calibrated_at_ms = Some(now);
-    settings::save(&dir, &cfg).map_err(|e| e.to_string())?;
-
-    let (live, live_error) = live_usage(&state).await;
-    assemble(&state, &events, live.as_ref(), live_error)
-}
-
-#[tauri::command]
-async fn reset_calibration(state: State<'_, App>) -> Result<Snapshot, String> {
-    let dir = config_dir(&state)?;
-    settings::save(&dir, &settings::Settings::default()).map_err(|e| e.to_string())?;
-    let events = read_events(&state)?;
-    let (live, live_error) = live_usage(&state).await;
-    assemble(&state, &events, live.as_ref(), live_error)
-}
-
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -178,11 +115,7 @@ pub fn run() {
             *app.state::<App>().config_dir.lock().unwrap() = dir;
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![
-            get_snapshot,
-            calibrate,
-            reset_calibration
-        ])
+        .invoke_handler(tauri::generate_handler![get_snapshot])
         .run(tauri::generate_context!())
         .expect("error while running claude-usage-monitor");
 }
@@ -203,8 +136,8 @@ mod tests {
             now_ms: now_ms(),
             limit: 17_000_000.0,
             weekly_limit: 90_000_000.0,
-            session_calibrated: false,
-            weekly_calibrated: false,
+            session_known: false,
+            weekly_known: false,
             live,
         }
     }
@@ -280,8 +213,10 @@ mod tests {
         assert_eq!(snap.limit_tokens, 17_000_000.0, "falls back to the supplied limit");
     }
 
+    /// Offline, a limit solved from an earlier live reading must still
+    /// reproduce the percentage it was solved from.
     #[test]
-    fn calibration_round_trips() {
+    fn a_remembered_limit_survives_going_offline() {
         let ev = local_events();
         let now = now_ms();
         let Some(start) = blocks::active_block_start(&ev, now) else { return };
@@ -295,13 +230,13 @@ mod tests {
             let solved = counted / (observed / 100.0);
             let snap = blocks::build(Inputs {
                 limit: solved,
-                session_calibrated: true,
+                session_known: true,
                 now_ms: now,
                 ..inputs(&ev, None)
             });
-            assert_eq!(snap.source, Source::Calibrated);
+            assert_eq!(snap.source, Source::Remembered);
             assert!((snap.used_pct - observed).abs() < 0.01,
-                "calibrating to {observed}% produced {}%", snap.used_pct);
+                "a limit solved at {observed}% produced {}%", snap.used_pct);
         }
     }
 
@@ -313,25 +248,28 @@ mod tests {
         assert!(!known);
         assert!(limit > settings::busiest_block(&ev), "provisional limit needs headroom");
 
-        // A solved limit beats the provisional one, and a manual entry
-        // beats the solved one.
+        // A solved limit beats the provisional one.
         let auto = settings::Settings { auto_limit_tokens: Some(30.0), ..Default::default() };
         let (limit, _, known, _) = settings::effective(&auto, &ev);
         assert_eq!((limit, known), (30.0, true));
 
-        let both = settings::Settings { limit_tokens: Some(42.0), ..auto.clone() };
-        assert_eq!(settings::effective(&both, &ev).0, 42.0, "manual must win");
-
-        let bad = settings::Settings { limit_tokens: Some(0.0), ..Default::default() };
+        let bad = settings::Settings { auto_limit_tokens: Some(0.0), ..Default::default() };
         let (limit, _, known, _) = settings::effective(&bad, &ev);
         assert!(limit > 0.0 && !known, "a zero limit must fall back, not stick");
 
         let dir = std::env::temp_dir().join("cum-test-settings");
         let _ = std::fs::remove_dir_all(&dir);
-        settings::save(&dir, &both).expect("save");
-        assert_eq!(settings::load(&dir).limit_tokens, Some(42.0));
-        settings::remember_derived(&dir, Some(123.0), None);
-        assert_eq!(settings::load(&dir).auto_limit_tokens, Some(123.0));
+        settings::remember_derived(&dir, Some(123.0), Some(456.0));
+        let back = settings::load(&dir);
+        assert_eq!((back.auto_limit_tokens, back.auto_weekly_limit_tokens),
+            (Some(123.0), Some(456.0)));
+
+        // A config written by the old hand-calibration build must load
+        // without error; its fields are simply dropped.
+        std::fs::write(dir.join("calibration.json"),
+            r#"{"limitTokens":42.0,"weeklyLimitTokens":7.0,"calibratedAtMs":1,"autoLimitTokens":9.0}"#).unwrap();
+        let legacy = settings::load(&dir);
+        assert_eq!(legacy.auto_limit_tokens, Some(9.0), "legacy config must still load");
         let _ = std::fs::remove_dir_all(&dir);
     }
 
