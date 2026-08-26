@@ -43,7 +43,8 @@ export function mockSnapshot() {
   const toLimit = Math.ceil((100 - used) / perMin);
 
   return {
-    calibrated: false,
+    source: "estimated",
+    liveError: "Running in a browser, so there is no live endpoint.",
     limitTokens: 17_148_739,
     blockStartMs: start,
     blockEndMs: start + BLOCK_MS,
@@ -63,6 +64,12 @@ export function mockSnapshot() {
     })),
     messages: 59,
     rawTokens: 6_750_000,
-    weekly: { calibrated: false, pct: 61.8, limitTokens: 90_000_000, weighted: 55_620_000 },
+    weekly: {
+      source: "estimated",
+      pct: 61.8,
+      limitTokens: 90_000_000,
+      weighted: 55_620_000,
+      resetsAtMs: null,
+    },
   };
 }

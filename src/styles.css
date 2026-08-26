@@ -123,6 +123,12 @@ html, body {
   animation: blink 1.6s steps(1, end) infinite;
 }
 @keyframes blink { 0%, 62% { opacity: 1; } 63%, 100% { opacity: 0.22; } }
+/* The lamp means live telemetry, so it goes dark when there is none. */
+.rec--dark {
+  background: var(--silk-dim);
+  box-shadow: none;
+  animation: none;
+}
 
 .wordmark {
   margin: 0;
@@ -371,6 +377,7 @@ html, body {
 /* -- calibration affordance --------------------------------------- */
 
 .silk--warn { color: #D08A5E; }
+.silk--live { color: #7FB08A; }
 
 .link {
   padding: 3px 6px;

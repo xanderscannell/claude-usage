@@ -67,9 +67,10 @@
     <section class="pens" id="pens" aria-label="Pen channels"></section>
 
     <footer class="rail rail--foot">
-      <span class="silk silk--dim">7-day</span>
+      <span class="silk silk--dim" id="weekly-label">Weekly</span>
       <span class="segbar" id="segbar" aria-hidden="true"></span>
       <span class="silk foot__pct"><b id="weekly-pct">—</b>%</span>
+      <span class="silk silk--dim" id="weekly-reset"></span>
       <span class="rail__rule"></span>
       <button class="link" type="button" id="calibrate-open">
         <span class="silk" id="calibrate-state">Uncalibrated</span>
@@ -83,9 +84,7 @@
     <form class="sheet__panel" id="calibrate-form" role="dialog" aria-modal="true" aria-labelledby="sheet-title">
       <h2 class="sheet__title" id="sheet-title">Calibrate to your plan</h2>
       <p class="sheet__body">
-        Nothing on this machine records your plan's ceiling. Run <b>/usage</b> in Claude Code
-        and enter what it reports — your tokens are already counted exactly, this just sets
-        what 100% means.
+        <span id="sheet-lede"></span>
       </p>
 
       <div class="field">

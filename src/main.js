@@ -39,6 +39,9 @@ function paintClock() {
   $("reset-clock").textContent = snap?.blockStartMs ? hms(Math.max(0, resetLeft)) : "—";
 }
 
+const dayLabel = (ms) =>
+  new Date(ms).toLocaleString([], { weekday: "short", hour: "numeric" }).replace(/,/, "");
+
 function compact(n) {
   if (n >= 1e9) return `${(n / 1e9).toFixed(2)}B`;
   if (n >= 1e6) return `${(n / 1e6).toFixed(2)}M`;
@@ -103,9 +106,16 @@ function paintFooter() {
   });
   $("weekly-pct").textContent = pct.toFixed(0);
 
+  // The endpoint names the real weekly reset; local logs can only guess,
+  // so without it we say nothing rather than invent a schedule.
+  const wr = snap.weekly.resetsAtMs;
+  $("weekly-label").textContent = wr ? "Weekly" : "7-day";
+  $("weekly-reset").textContent = wr ? `resets ${dayLabel(wr)}` : "";
+
   const state = $("calibrate-state");
-  state.textContent = snap.calibrated ? "Calibrated" : "Calibrate";
-  state.classList.toggle("silk--warn", !snap.calibrated);
+  state.textContent = { live: "Live", calibrated: "Calibrated", estimated: "Calibrate" }[snap.source];
+  state.classList.toggle("silk--warn", snap.source === "estimated");
+  state.classList.toggle("silk--live", snap.source === "live");
 
   // With the legend hidden, the footer is the only place the model is named.
   const solo = snap.series.length <= 1 ? snap.series[0]?.label : null;
@@ -137,9 +147,13 @@ function render() {
         ? "Clear"
         : "—";
 
-  $("unit-mark").textContent = snap.calibrated
-    ? `Limit ${compact(snap.limitTokens)}`
-    : "Uncalibrated · scaled to your busiest block";
+  $("unit-mark").textContent = {
+    live: `Live · limit ${compact(snap.limitTokens)}`,
+    calibrated: `Calibrated · limit ${compact(snap.limitTokens)}`,
+    estimated: "Estimated · scaled to your busiest block",
+  }[snap.source];
+  // The lamp records live telemetry, so it goes dark when there is none.
+  document.querySelector(".rec").classList.toggle("rec--dark", snap.source !== "live");
 
   svg.setAttribute(
     "aria-label",
@@ -157,10 +171,19 @@ function render() {
 /* -- calibration sheet -------------------------------------------- */
 
 function openSheet() {
-  $("sheet-error").hidden = true;
+  $("sheet-lede").textContent = snap?.source === "live"
+    ? "Claude Code's usage endpoint is answering, so the limit is already exact and nothing here is needed. You can still pin it by hand if you want to override."
+    : "Nothing on this machine records your plan's ceiling. Run /usage in Claude Code and enter what it reports — your tokens are already counted exactly, this just sets what 100% means.";
+  const err = snap?.liveError;
+  if (err && snap?.source !== "live") {
+    $("sheet-error").textContent = err;
+    $("sheet-error").hidden = false;
+  } else {
+    $("sheet-error").hidden = true;
+  }
   $("session-pct").value = "";
   $("weekly-pct").value = "";
-  $("calibrate-clear").hidden = !(snap?.calibrated || snap?.weekly?.calibrated);
+  $("calibrate-clear").hidden = snap?.source !== "calibrated";
   $("sheet").hidden = false;
   $("session-pct").focus();
 }

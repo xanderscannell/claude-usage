@@ -20,8 +20,13 @@ const PROVISIONAL_HEADROOM: f64 = 1.05;
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Settings {
+    /// Entered by hand from `/usage`.
     pub limit_tokens: Option<f64>,
     pub weekly_limit_tokens: Option<f64>,
+    /// Solved from the live endpoint, so the last known real limit
+    /// survives going offline. Manual values still win.
+    pub auto_limit_tokens: Option<f64>,
+    pub auto_weekly_limit_tokens: Option<f64>,
     pub calibrated_at_ms: Option<i64>,
 }
 
@@ -82,12 +87,37 @@ pub fn busiest_week(events: &[Event]) -> f64 {
     best
 }
 
-/// The limit to render with: the calibrated value when we have one,
-/// otherwise the observed high-water mark plus headroom.
+/// The limit to render with, in order of trust: entered by hand, then
+/// solved from a previous live reading, then the observed high-water
+/// mark plus headroom.
 pub fn effective(settings: &Settings, events: &[Event]) -> (f64, f64, bool, bool) {
-    let session_cal = settings.limit_tokens.filter(|v| *v > 0.0);
-    let weekly_cal = settings.weekly_limit_tokens.filter(|v| *v > 0.0);
-    let session = session_cal.unwrap_or_else(|| (busiest_block(events) * PROVISIONAL_HEADROOM).max(1.0));
-    let weekly = weekly_cal.unwrap_or_else(|| (busiest_week(events) * PROVISIONAL_HEADROOM).max(1.0));
-    (session, weekly, session_cal.is_some(), weekly_cal.is_some())
+    let positive = |v: Option<f64>| v.filter(|x| *x > 0.0);
+    let session_known = positive(settings.limit_tokens).or(positive(settings.auto_limit_tokens));
+    let weekly_known = positive(settings.weekly_limit_tokens).or(positive(settings.auto_weekly_limit_tokens));
+    let session = session_known.unwrap_or_else(|| (busiest_block(events) * PROVISIONAL_HEADROOM).max(1.0));
+    let weekly = weekly_known.unwrap_or_else(|| (busiest_week(events) * PROVISIONAL_HEADROOM).max(1.0));
+    (session, weekly, session_known.is_some(), weekly_known.is_some())
+}
+
+/// Stores a limit solved from live data, but only when it has moved
+/// enough to matter - this runs on every poll.
+pub fn remember_derived(dir: &Path, session: Option<f64>, weekly: Option<f64>) {
+    let mut cfg = load(dir);
+    let moved = |old: Option<f64>, new: Option<f64>| match (old, new) {
+        (_, None) => false,
+        (None, Some(_)) => true,
+        (Some(o), Some(n)) => o <= 0.0 || (n - o).abs() / o > 0.01,
+    };
+    let mut dirty = false;
+    if moved(cfg.auto_limit_tokens, session) {
+        cfg.auto_limit_tokens = session;
+        dirty = true;
+    }
+    if moved(cfg.auto_weekly_limit_tokens, weekly) {
+        cfg.auto_weekly_limit_tokens = weekly;
+        dirty = true;
+    }
+    if dirty {
+        let _ = save(dir, &cfg);
+    }
 }

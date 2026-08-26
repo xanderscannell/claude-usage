@@ -3,7 +3,9 @@
 A fixed 800×480 desk panel that answers one question at a glance: **how much of the
 current 5-hour block is gone, and will I hit the wall before it resets?**
 
-It reads Claude Code's own session logs. No API keys, no network, no credentials.
+It reads Claude Code's own session logs for the shape of the curve, and Claude
+Code's own usage endpoint for the truth on top. No API keys, no configuration, and
+it still works with the network off.
 
 ```bash
 npm install
@@ -39,16 +41,39 @@ now, and the blank paper to its right is the time you have left. The dashed line
 is where the current burn rate lands you, and if it crosses the ceiling the
 recorder marks the clock time it happens.
 
-## Calibration
+## Where 100% comes from
 
-Nothing local records your plan's ceiling, and no public API exposes it for a
-subscription. So the panel counts your tokens exactly and asks you once what 100%
-means: run `/usage` in Claude Code, click **Calibrate**, enter the percentage it
-shows. The limit is solved from the tokens counted over that same block and stored
-in the app config directory.
+Three sources, in order of trust. The title rail and the footer always say which
+one is in play.
 
-Until then it scales to your busiest block on record, which is useful immediately
-but reads as "relative to your own high-water mark" — the title rail says so.
+**Live.** Claude Code reaches `GET /api/oauth/usage` with the OAuth token in
+`~/.claude/.credentials.json` to render `/usage`; the panel reads the same
+endpoint. That gives the true percentage and the true reset instant, and dividing
+our own token count by that percentage solves for the real limit — so there is
+nothing to calibrate. On this machine the endpoint reported a limit of 6.31M
+weighted tokens against a busiest-block estimate of 17.1M, an error of ~2.7x.
+
+Deliberate constraints on that path:
+
+- **Read only.** The credentials file is never written. Refresh tokens normally
+  rotate, so refreshing here without persisting could invalidate the CLI's own
+  login. An expired token is reported, not repaired — run any Claude Code command
+  and it refreshes itself.
+- **The token goes to one host** and is never logged, returned through a command,
+  or put in an error message. Parse failures report field names, not values.
+- **Every failure is soft**, cached for a minute on success and two on failure.
+  This endpoint is undocumented: it can change or vanish, and the panel has to
+  keep working from local logs when it does.
+
+**Calibrated.** If the endpoint is unreachable, run `/usage`, click **Calibrate**,
+and enter the percentage. The limit is solved from the tokens counted over the
+same block and stored in the app config directory. A limit solved from a previous
+live reading is kept for the same purpose, so going offline degrades to the last
+known real limit rather than to a guess.
+
+**Estimated.** With neither, it scales to your busiest block on record — useful
+immediately, but relative to your own high-water mark rather than your plan. As
+the 2.7x above shows, treat it as a shape, not a number.
 
 ## Design
 
@@ -78,6 +103,7 @@ One motion moment on load; `prefers-reduced-motion` turns it all off.
 | [src/api.js](src/api.js) | IPC, with a synthetic fallback for browser dev |
 | [src-tauri/src/usage.rs](src-tauri/src/usage.rs) | log scanning, dedup, weighting |
 | [src-tauri/src/blocks.rs](src-tauri/src/blocks.rs) | block detection, snapshot |
+| [src-tauri/src/oauth.rs](src-tauri/src/oauth.rs) | live usage endpoint |
 | [src-tauri/src/settings.rs](src-tauri/src/settings.rs) | calibration store |
 
 ## Notes
@@ -88,5 +114,10 @@ One motion moment on load; `prefers-reduced-motion` turns it all off.
   the panel still runs in a plain browser.
 - Fonts come from Google Fonts. Vendor them into `src/` before shipping so the
   panel renders offline.
-- Weekly usage is a rolling 7-day total, labelled `7-DAY`. Anthropic's weekly limit
-  resets on a schedule this data does not record, so no reset time is claimed.
+- Weekly usage comes from the endpoint's `seven_day` window, with its real reset
+  time. Without live data it falls back to a rolling 7-day total labelled `7-DAY`
+  and claims no reset schedule, because the logs do not record one.
+- `cargo test` runs fully offline. The two tests that touch the network are
+  `#[ignore]`d: `cargo test -- --ignored --nocapture` prints live percentages
+  (`live_fetch`) and the raw rate-limit subtrees (`live_shape`), which is where to
+  start if the endpoint's shape ever changes.
