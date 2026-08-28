@@ -1,15 +1,20 @@
-//! Remembers the limit solved from the live usage endpoint.
+//! Remembers what only the live usage endpoint can tell us.
 //!
 //! Nothing on disk records what your plan's ceiling is, but the endpoint
 //! reports the percentage spent, and dividing our own token count by it
 //! yields the limit. Keeping that value means losing the network drops
 //! the panel to the last known real limit rather than to a guess.
 //!
+//! The reset instants are kept for the same reason and matter just as
+//! much. A block boundary usually falls where no message was sent, so
+//! the logs cannot find it; forgetting it left the offline axis to be
+//! re-guessed from the log alone, hours away from where it really was.
+//!
 //! There is deliberately no hand-entered fallback: reading a percentage
 //! out of `/usage` needs the same token and network the endpoint itself
 //! needs, so anything a person could type in, the app could have fetched.
 
-use crate::blocks::BLOCK_MS;
+use crate::blocks;
 use crate::usage::Event;
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
@@ -19,7 +24,7 @@ const WEEK_MS: i64 = 7 * 24 * 60 * 60 * 1000;
 /// sit pinned at exactly 100%.
 const PROVISIONAL_HEADROOM: f64 = 1.05;
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Settings {
     /// Solved from the live endpoint, so the last known real limit
@@ -28,6 +33,20 @@ pub struct Settings {
     /// the next write.
     pub auto_limit_tokens: Option<f64>,
     pub auto_weekly_limit_tokens: Option<f64>,
+    /// Reset instants as the endpoint reported them, unix ms. Absent
+    /// from configs written before they were kept, which simply means
+    /// the axis falls back to the log until the next live reading.
+    pub auto_block_end_ms: Option<i64>,
+    pub auto_weekly_end_ms: Option<i64>,
+}
+
+/// What a live reading taught us that outlives it.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct Derived {
+    pub limit: Option<f64>,
+    pub weekly_limit: Option<f64>,
+    pub block_end_ms: Option<i64>,
+    pub weekly_end_ms: Option<i64>,
 }
 
 fn path(dir: &Path) -> PathBuf {
@@ -47,23 +66,19 @@ pub fn save(dir: &Path, s: &Settings) -> std::io::Result<()> {
     std::fs::write(path(dir), json)
 }
 
-/// Largest weighted total of any single block on record.
+/// Largest weighted total of any single block on record. Grouped by the
+/// same rule the panel draws with, so the provisional limit and the
+/// curve cannot be measuring different blocks.
 pub fn busiest_block(events: &[Event]) -> f64 {
-    const HOUR: i64 = 60 * 60 * 1000;
     let mut best = 0.0f64;
     let mut acc = 0.0f64;
     let mut start: Option<i64> = None;
     let mut last: Option<i64> = None;
     for ev in events {
-        let opens_new = match (start, last) {
-            (None, _) => true,
-            (Some(s), Some(l)) => ev.ts_ms >= s + BLOCK_MS || ev.ts_ms - l > BLOCK_MS,
-            (Some(s), None) => ev.ts_ms >= s + BLOCK_MS,
-        };
-        if opens_new {
+        if blocks::opens_block(start, last, ev.ts_ms) {
             best = best.max(acc);
             acc = 0.0;
-            start = Some(ev.ts_ms - ev.ts_ms.rem_euclid(HOUR));
+            start = Some(ev.ts_ms);
         }
         acc += ev.weighted;
         last = Some(ev.ts_ms);
@@ -98,25 +113,31 @@ pub fn effective(settings: &Settings, events: &[Event]) -> (f64, f64, bool, bool
     (session, weekly, session_known.is_some(), weekly_known.is_some())
 }
 
-/// Stores a limit solved from live data, but only when it has moved
-/// enough to matter - this runs on every poll.
-pub fn remember_derived(dir: &Path, session: Option<f64>, weekly: Option<f64>) {
-    let mut cfg = load(dir);
-    let moved = |old: Option<f64>, new: Option<f64>| match (old, new) {
-        (_, None) => false,
-        (None, Some(_)) => true,
-        (Some(o), Some(n)) => o <= 0.0 || (n - o).abs() / o > 0.01,
+/// A limit is solved by division, so it jitters a little between polls;
+/// only a real move is worth a write. Absent live data, whatever we
+/// already knew stands.
+fn keep_limit(old: Option<f64>, new: Option<f64>) -> Option<f64> {
+    match (old, new) {
+        (_, None) => old,
+        (None, Some(_)) => new,
+        (Some(o), Some(n)) if o <= 0.0 || (n - o).abs() / o > 0.01 => new,
+        _ => old,
+    }
+}
+
+/// Stores what a live reading taught us. This runs on every poll, so it
+/// writes only when something actually changed.
+pub fn remember_derived(dir: &Path, d: Derived) {
+    let old = load(dir);
+    let next = Settings {
+        auto_limit_tokens: keep_limit(old.auto_limit_tokens, d.limit),
+        auto_weekly_limit_tokens: keep_limit(old.auto_weekly_limit_tokens, d.weekly_limit),
+        // Reset instants are exact and change only when a block rolls,
+        // so any difference is real and none of it needs a threshold.
+        auto_block_end_ms: d.block_end_ms.or(old.auto_block_end_ms),
+        auto_weekly_end_ms: d.weekly_end_ms.or(old.auto_weekly_end_ms),
     };
-    let mut dirty = false;
-    if moved(cfg.auto_limit_tokens, session) {
-        cfg.auto_limit_tokens = session;
-        dirty = true;
-    }
-    if moved(cfg.auto_weekly_limit_tokens, weekly) {
-        cfg.auto_weekly_limit_tokens = weekly;
-        dirty = true;
-    }
-    if dirty {
-        let _ = save(dir, &cfg);
+    if next != old {
+        let _ = save(dir, &next);
     }
 }

@@ -1,10 +1,17 @@
 //! Groups usage events into Claude's 5-hour limit blocks and builds the
 //! snapshot the panel renders.
 //!
-//! The limit is not a rolling window: a block opens at your first message
-//! (floored to the hour), runs five hours, then resets. So the paper shows
-//! one block end to end, the pen sits at now, and the blank paper to its
-//! right is the time you have left.
+//! The limit is not a rolling window: a block opens at a message sent
+//! outside the previous block, runs five hours from that instant, then
+//! resets. So the paper shows one block end to end, the pen sits at now,
+//! and the blank paper to its right is the time you have left.
+//!
+//! Boundaries are not hour aligned. The endpoint reports five-hour resets
+//! at ten past as readily as on the hour, and while usage continues each
+//! block chains straight on from the last - so the edge usually falls in
+//! a silence, where no message marks it. That is why the reset instant is
+//! kept across restarts: it is the one fact about the axis the logs
+//! cannot yield, and re-guessing it put the axis over two hours out.
 //!
 //! Two sources feed this. Local session logs give the shape of the curve
 //! and the per-model split, which nothing else can. When Claude Code's
@@ -45,6 +52,10 @@ pub struct Inputs<'a> {
     pub weekly_limit: f64,
     pub session_known: bool,
     pub weekly_known: bool,
+    /// Reset instants kept from an earlier live reading, unix ms. They
+    /// pin the axis while they last, and anchor the fallback after.
+    pub known_block_end_ms: Option<i64>,
+    pub known_weekly_end_ms: Option<i64>,
     pub live: Option<&'a oauth::Usage>,
 }
 
@@ -72,7 +83,8 @@ pub struct Weekly {
     pub pct: f64,
     pub limit_tokens: f64,
     pub weighted: f64,
-    /// Unix ms, only when the endpoint told us.
+    /// Unix ms, only ever the endpoint's answer - live, or the one it
+    /// last gave us while that is still in the future.
     pub resets_at_ms: Option<i64>,
 }
 
@@ -86,6 +98,12 @@ pub struct Snapshot {
     pub derived_limit: Option<f64>,
     #[serde(skip)]
     pub derived_weekly_limit: Option<f64>,
+    /// The reset instants a live reading gave us; worth persisting for
+    /// the same reason the limit is.
+    #[serde(skip)]
+    pub derived_block_end_ms: Option<i64>,
+    #[serde(skip)]
+    pub derived_weekly_end_ms: Option<i64>,
     /// Null when no block is open - nothing has been sent in five hours.
     pub block_start_ms: Option<i64>,
     pub block_end_ms: Option<i64>,
@@ -108,9 +126,15 @@ pub struct Snapshot {
     pub live_error: Option<String>,
 }
 
-fn floor_to_hour(ts_ms: i64) -> i64 {
-    const HOUR: i64 = 60 * 60 * 1000;
-    ts_ms - ts_ms.rem_euclid(HOUR)
+/// True when `ts_ms` falls outside the block that `start` opened, and so
+/// opens one of its own. The single definition of where a block ends, so
+/// the panel and the high-water mark cannot drift apart on it.
+pub fn opens_block(start: Option<i64>, last: Option<i64>, ts_ms: i64) -> bool {
+    match (start, last) {
+        (None, _) => true,
+        (Some(s), Some(l)) => ts_ms >= s + BLOCK_MS || ts_ms - l > BLOCK_MS,
+        (Some(s), None) => ts_ms >= s + BLOCK_MS,
+    }
 }
 
 pub fn label_for(model: &str) -> String {
@@ -138,22 +162,44 @@ pub fn label_for(model: &str) -> String {
     if out.is_empty() { model.to_string() } else { out.join(" ") }
 }
 
-/// Finds the start of the block that is open at `now`, if any.
+/// Finds the start of the block that is open at `now`, if any, by
+/// chaining forward through the log. A block is anchored at the message
+/// that opened it, not at the hour containing it: the endpoint reports
+/// resets at ten past the hour, so flooring would move the axis by up to
+/// an hour on nothing but an assumption.
 pub fn active_block_start(events: &[Event], now_ms: i64) -> Option<i64> {
     let mut start: Option<i64> = None;
     let mut last: Option<i64> = None;
     for ev in events {
-        let opens_new = match (start, last) {
-            (None, _) => true,
-            (Some(s), Some(l)) => ev.ts_ms >= s + BLOCK_MS || ev.ts_ms - l > BLOCK_MS,
-            (Some(s), None) => ev.ts_ms >= s + BLOCK_MS,
-        };
-        if opens_new {
-            start = Some(floor_to_hour(ev.ts_ms));
+        if opens_block(start, last, ev.ts_ms) {
+            start = Some(ev.ts_ms);
         }
         last = Some(ev.ts_ms);
     }
     start.filter(|s| now_ms < s + BLOCK_MS)
+}
+
+/// Where the open block starts when there is no live reading.
+///
+/// A reset instant the endpoint reported is exact, and it almost never
+/// coincides with a message, so it cannot be rediscovered from the logs.
+/// While it is still in the future it pins the block outright - offline
+/// the axis then matches live to the minute. Once it passes, the chain
+/// restarts from it rather than from the top of the log, so a block the
+/// server closed hours ago can no longer hold the axis open.
+fn offline_block_start(events: &[Event], now_ms: i64, known_end: Option<i64>) -> Option<i64> {
+    match known_end {
+        // Still inside the block the endpoint reported.
+        Some(end) if (end - BLOCK_MS..end).contains(&now_ms) => Some(end - BLOCK_MS),
+        // It has passed: only a message after it can open the next block.
+        Some(end) if now_ms >= end => {
+            let after = events.partition_point(|e| e.ts_ms < end);
+            active_block_start(&events[after..], now_ms)
+        }
+        // Nothing to trust - no reset kept, or one further off than a
+        // block can reach, which means a stale write or a moved clock.
+        _ => active_block_start(events, now_ms),
+    }
 }
 
 pub fn build(input: Inputs<'_>) -> Snapshot {
@@ -161,17 +207,12 @@ pub fn build(input: Inputs<'_>) -> Snapshot {
     let five = live.and_then(|u| u.five_hour);
 
     // The endpoint's reset instant pins the block exactly; without it we
-    // infer the boundary from the first message, floored to the hour.
-    let (block_start, block_end) = match five {
-        Some(w) => {
-            let end = w.resets_at * 1000;
-            (Some(end - BLOCK_MS), Some(end))
-        }
-        None => {
-            let s = active_block_start(events, now_ms);
-            (s, s.map(|s| s + BLOCK_MS))
-        }
+    // fall back to the last one it gave us, and only then to the log.
+    let block_start = match five {
+        Some(w) => Some(w.resets_at * 1000 - BLOCK_MS),
+        None => offline_block_start(events, now_ms, input.known_block_end_ms),
     };
+    let block_end = block_start.map(|s| s + BLOCK_MS);
 
     let in_block: Vec<&Event> = match block_start {
         Some(s) => events.iter().filter(|e| e.ts_ms >= s && e.ts_ms < s + BLOCK_MS).collect(),
@@ -275,6 +316,8 @@ pub fn build(input: Inputs<'_>) -> Snapshot {
         limit_tokens: limit,
         derived_limit,
         derived_weekly_limit,
+        derived_block_end_ms: five.map(|w| w.resets_at * 1000),
+        derived_weekly_end_ms: seven.map(|w| w.resets_at * 1000),
         block_start_ms: block_start,
         block_end_ms: block_end,
         now_ms,
@@ -308,7 +351,11 @@ pub fn build(input: Inputs<'_>) -> Snapshot {
             },
             limit_tokens: weekly_limit,
             weighted: weekly_weighted,
-            resets_at_ms: seven.map(|w| w.resets_at * 1000),
+            // A remembered weekly reset is still the endpoint's answer,
+            // not a guess, so it stands until it passes.
+            resets_at_ms: seven
+                .map(|w| w.resets_at * 1000)
+                .or(input.known_weekly_end_ms.filter(|e| *e > now_ms)),
         },
         live_error: None,
     }

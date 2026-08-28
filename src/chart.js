@@ -36,8 +36,8 @@ function el(name, attrs = {}, text) {
   return node;
 }
 
-/* Blocks always open on the hour, so the axis needs no minutes; the
-   limit crossing does. */
+/* Blocks are anchored at a message, not at the hour, so the axis
+   usually needs minutes; the limit crossing always does. */
 const clockLabel = (ms, withMinutes = false) =>
   new Date(ms)
     .toLocaleTimeString([], withMinutes ? { hour: "numeric", minute: "2-digit" } : { hour: "numeric" })
@@ -115,8 +115,8 @@ export function drawChart({ svg, paper, penEl, snap, hidden, reduced }) {
     marks.append(el("text", { x: x0 - 7, y: y(v) + 2.6, "text-anchor": "end" }, String(v)));
   }
   if (snap.blockStartMs) {
-    // Hour-only labels are only honest when the block starts on the
-    // hour; otherwise every mark would read an hour early.
+    // Hour-only labels are only honest on the rare block that does start
+    // on the hour; otherwise every mark would read an hour early.
     const onHour = new Date(snap.blockStartMs).getMinutes() === 0;
     for (let h = 0; h <= 5; h++) {
       marks.append(el("text", {

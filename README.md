@@ -34,12 +34,18 @@ the bytes appended since the last one.
 
 ## Blocks, not a rolling window
 
-The 5-hour limit is not a rolling window. A block opens at your first message
-(floored to the hour), runs five hours, then resets — which is why `/usage` can
-name a reset time. So the paper shows **one block end to end**: the pen sits at
-now, and the blank paper to its right is the time you have left. The dashed line
-is where the current burn rate lands you, and if it crosses the ceiling the
-recorder marks the clock time it happens.
+The 5-hour limit is not a rolling window. A block opens at a message sent outside
+the previous block, runs five hours **from that instant**, then resets — which is
+why `/usage` can name a reset time. So the paper shows **one block end to end**:
+the pen sits at now, and the blank paper to its right is the time you have left.
+The dashed line is where the current burn rate lands you, and if it crosses the
+ceiling the recorder marks the clock time it happens.
+
+Boundaries are **not** hour aligned — this machine's endpoint reports five-hour
+resets at ten past — and while usage continues each block chains straight on from
+the last, so the edge normally falls in a silence with no message to mark it.
+That is why the reset instant is [remembered](#where-100-comes-from): it is the
+one fact about the axis the local logs cannot yield.
 
 ## Where 100% comes from
 
@@ -55,8 +61,13 @@ fraction either side of the real boundary — both `07:59:59.9` and `08:00:00.1`
 show up for the same edge — so it is snapped to the nearest minute. Truncating
 that to an hour for an axis label loses a whole hour.
 
-**Remembered.** The solved limit is kept, so losing the network drops the panel to
-the last known real limit rather than to a guess.
+**Remembered.** The solved limit **and both reset instants** are kept, so losing
+the network drops the panel to the last known real limit rather than to a guess,
+and leaves the time axis where live had it. While a remembered reset is still in
+the future it pins the block outright; once it passes, the block chain restarts
+from it rather than from the top of the log. Re-deriving the boundary from the
+log alone had put the offline axis 2h10m from the live one, and swept in usage
+the server had already reset away.
 
 **Estimated.** Before any live reading has ever succeeded, it scales to the
 busiest block on record. On this machine that guessed 17.1M against a real 6.31M —
@@ -114,7 +125,7 @@ One motion moment on load; `prefers-reduced-motion` turns it all off.
 | [src-tauri/src/usage.rs](src-tauri/src/usage.rs) | log scanning, dedup, weighting |
 | [src-tauri/src/blocks.rs](src-tauri/src/blocks.rs) | block detection, snapshot |
 | [src-tauri/src/oauth.rs](src-tauri/src/oauth.rs) | live usage endpoint |
-| [src-tauri/src/settings.rs](src-tauri/src/settings.rs) | remembers the solved limit |
+| [src-tauri/src/settings.rs](src-tauri/src/settings.rs) | remembers the solved limit and the reset instants |
 
 ## Notes
 

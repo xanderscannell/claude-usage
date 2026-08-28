@@ -98,11 +98,19 @@ fn assemble(
         weekly_limit,
         session_known: known_s,
         weekly_known: known_w,
+        known_block_end_ms: cfg.auto_block_end_ms,
+        known_weekly_end_ms: cfg.auto_weekly_end_ms,
         live,
     });
 
-    // Keep the solved limit so the panel stays accurate offline.
-    settings::remember_derived(&dir, snap.derived_limit, snap.derived_weekly_limit);
+    // Keep the solved limit and the reset instants, so the panel stays
+    // accurate offline in both the number and the axis it is plotted on.
+    settings::remember_derived(&dir, settings::Derived {
+        limit: snap.derived_limit,
+        weekly_limit: snap.derived_weekly_limit,
+        block_end_ms: snap.derived_block_end_ms,
+        weekly_end_ms: snap.derived_weekly_end_ms,
+    });
     snap.live_error = live_error;
     Ok(snap)
 }
@@ -146,6 +154,8 @@ mod tests {
             weekly_limit: 90_000_000.0,
             session_known: false,
             weekly_known: false,
+            known_block_end_ms: None,
+            known_weekly_end_ms: None,
             live,
         }
     }
@@ -248,6 +258,118 @@ mod tests {
         }
     }
 
+    fn ev_at(ts_ms: i64) -> usage::Event {
+        usage::Event {
+            ts_ms,
+            model: "claude-opus-5".into(),
+            weighted: 1000.0,
+            raw: 1000,
+            key: (format!("r{ts_ms}"), format!("m{ts_ms}")),
+        }
+    }
+
+    /// A block is anchored at the message that opened it. Flooring to the
+    /// hour was an assumption the endpoint disproves - it reports
+    /// five-hour resets at ten past - and it moved the axis by up to an
+    /// hour every time the panel fell back to the log.
+    #[test]
+    fn blocks_are_not_floored_to_the_hour() {
+        let start = 1_787_947_800_000; // 20:10:00Z, ten past the hour
+        let ev = [ev_at(start), ev_at(start + 60_000)];
+        assert_eq!(
+            blocks::active_block_start(&ev, start + 60 * 60_000),
+            Some(start),
+            "the block must open where the message did"
+        );
+    }
+
+    /// The whole point of remembering the reset: offline, the axis has to
+    /// land where live said it did. Nothing in the log marks that
+    /// boundary, so without this it is re-guessed and drifts.
+    #[test]
+    fn a_remembered_reset_pins_the_offline_axis() {
+        let ev = local_events();
+        let now = now_ms();
+        let resets_at = now / 1000 + 3600;
+        let live = oauth::Usage {
+            five_hour: Some(oauth::Window { pct: 41.2, resets_at }),
+            seven_day: Some(oauth::Window { pct: 95.1, resets_at: resets_at + 86_400 }),
+            seven_day_opus: None,
+        };
+
+        let online = blocks::build(Inputs { now_ms: now, ..inputs(&ev, Some(&live)) });
+        let offline = blocks::build(Inputs {
+            now_ms: now,
+            known_block_end_ms: online.derived_block_end_ms,
+            known_weekly_end_ms: online.derived_weekly_end_ms,
+            session_known: true,
+            ..inputs(&ev, None)
+        });
+
+        assert_eq!(offline.source, Source::Remembered);
+        assert_eq!(offline.block_start_ms, online.block_start_ms,
+            "offline must open the block where live did");
+        assert_eq!(offline.block_end_ms, online.block_end_ms);
+        assert_eq!(offline.resets_in_seconds, online.resets_in_seconds);
+        assert_eq!(offline.filled_buckets, online.filled_buckets);
+        assert_eq!(offline.weekly.resets_at_ms, online.weekly.resets_at_ms,
+            "a weekly reset the endpoint gave us is not a guess either");
+    }
+
+    /// Once the remembered block has expired the chain has to restart
+    /// from it. Chaining from the top of the log instead let a block the
+    /// server closed hours ago keep holding the axis open.
+    #[test]
+    fn an_expired_remembered_reset_anchors_the_next_block() {
+        let end = 1_787_947_800_000;
+        let opened = end + 10 * 60_000;
+        let ev = [ev_at(end - 3 * 60 * 60_000), ev_at(opened), ev_at(opened + 60_000)];
+        let now = end + 60 * 60_000;
+
+        let stale = blocks::build(Inputs { now_ms: now, ..inputs(&ev, None) });
+        assert_eq!(stale.block_start_ms, Some(end - 3 * 60 * 60_000),
+            "without the reset the log alone anchors the block too early");
+
+        let anchored = blocks::build(Inputs {
+            now_ms: now,
+            known_block_end_ms: Some(end),
+            ..inputs(&ev, None)
+        });
+        assert_eq!(anchored.block_start_ms, Some(opened),
+            "only a message after the reset can open the next block");
+        assert_eq!(anchored.messages, 2, "usage before the reset must not be counted");
+    }
+
+    /// A reset still in the future pins the block whether or not anything
+    /// has been sent in it, exactly as a live reading would.
+    #[test]
+    fn a_future_remembered_reset_holds_an_empty_block_open() {
+        let now = now_ms();
+        let end = now + 2 * 60 * 60_000;
+        let snap = blocks::build(Inputs {
+            now_ms: now,
+            known_block_end_ms: Some(end),
+            ..inputs(&[], None)
+        });
+        assert_eq!(snap.block_start_ms, Some(end - blocks::BLOCK_MS));
+        assert_eq!(snap.block_end_ms, Some(end));
+    }
+
+    /// A reset so old the block cannot still be running must not be
+    /// trusted, nor one from a clock that has jumped backwards.
+    #[test]
+    fn an_impossible_remembered_reset_falls_back_to_the_log() {
+        let now = now_ms();
+        let ev = [ev_at(now - 30 * 60_000)];
+        let future = blocks::build(Inputs {
+            now_ms: now,
+            known_block_end_ms: Some(now + 9 * 60 * 60_000),
+            ..inputs(&ev, None)
+        });
+        assert_eq!(future.block_start_ms, Some(now - 30 * 60_000),
+            "a reset more than a block away cannot be the open one");
+    }
+
     #[test]
     fn settings_precedence_and_round_trip() {
         let ev = local_events();
@@ -267,10 +389,22 @@ mod tests {
 
         let dir = std::env::temp_dir().join("cum-test-settings");
         let _ = std::fs::remove_dir_all(&dir);
-        settings::remember_derived(&dir, Some(123.0), Some(456.0));
+        settings::remember_derived(&dir, settings::Derived {
+            limit: Some(123.0),
+            weekly_limit: Some(456.0),
+            block_end_ms: Some(789),
+            weekly_end_ms: Some(1011),
+        });
         let back = settings::load(&dir);
         assert_eq!((back.auto_limit_tokens, back.auto_weekly_limit_tokens),
             (Some(123.0), Some(456.0)));
+        assert_eq!((back.auto_block_end_ms, back.auto_weekly_end_ms),
+            (Some(789), Some(1011)), "reset instants must survive the round trip");
+
+        // A poll with no live reading must not erase what we already knew.
+        settings::remember_derived(&dir, settings::Derived::default());
+        let kept = settings::load(&dir);
+        assert_eq!(kept, back, "an offline poll must leave the config alone");
 
         // A config written by the old hand-calibration build must load
         // without error; its fields are simply dropped.
@@ -294,8 +428,9 @@ mod diagnose {
     use super::*;
     use blocks::Inputs;
 
-    /// Prints every time-related figure the panel derives, so a
-    /// disagreement between two readouts can be traced to its source.
+    /// Prints every time-related figure the panel derives, and then what
+    /// the offline path makes of the same moment, so a disagreement
+    /// between two readouts can be traced to its source.
     /// `cargo test -- --ignored --nocapture diagnose`
     #[test]
     #[ignore]
@@ -311,6 +446,8 @@ mod diagnose {
             weekly_limit: 1.0,
             session_known: false,
             weekly_known: false,
+            known_block_end_ms: None,
+            known_weekly_end_ms: None,
             live: live.as_ref(),
         });
 
@@ -328,6 +465,31 @@ mod diagnose {
         eprintln!("minutes_to_limit= {:?}", snap.minutes_to_limit);
         eprintln!("projected_end   = {:.2}", snap.projected_end_pct);
         eprintln!("filled_buckets  = {} of {}", snap.filled_buckets, blocks::BUCKETS);
+
+        // The same moment as the panel would draw it with no network.
+        // Both offline axes are printed: with the reset we remember, and
+        // with the log alone. The gap between them is what forgetting it
+        // used to cost.
+        let offline = |known| blocks::build(Inputs {
+            events: &ev,
+            now_ms: now,
+            limit: 1.0,
+            weekly_limit: 1.0,
+            session_known: false,
+            weekly_known: false,
+            known_block_end_ms: known,
+            known_weekly_end_ms: None,
+            live: None,
+        });
+        for (name, known) in [("remembered", snap.derived_block_end_ms), ("log only", None)] {
+            let off = offline(known);
+            let drift = match (off.block_start_ms, snap.block_start_ms) {
+                (Some(o), Some(l)) => format!("{:+.1} min from live", (o - l) as f64 / 60_000.0),
+                _ => "no block".into(),
+            };
+            eprintln!("offline ({name:<11}) start = {:?} {} | {}",
+                off.block_start_ms, off.block_start_ms.map(hm).unwrap_or_default(), drift);
+        }
 
         // What the chart draws for the crossing marker.
         if let (Some(end), true) = (snap.block_end_ms, snap.projected_end_pct > 100.0) {
