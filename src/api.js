@@ -15,3 +15,10 @@ export async function getSnapshot() {
   return call("get_snapshot");
 }
 
+/* Sends the window back to the display it is sized for. Resolves false
+   when that display is not connected, so nothing moved. */
+export async function alignWindow() {
+  if (!live) return false;
+  return call("align_window");
+}
+

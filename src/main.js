@@ -1,4 +1,4 @@
-import { getSnapshot, live } from "./api.js";
+import { alignWindow, getSnapshot, live } from "./api.js";
 import { drawChart, UI_INKS } from "./chart.js";
 
 const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -186,11 +186,27 @@ function wireWindowControls() {
   const api = globalThis.__TAURI__?.window;
   for (const btn of document.querySelectorAll(".ctl")) {
     btn.addEventListener("click", () => {
+      if (btn.dataset.win === "align") return align(btn);
       const win = api?.getCurrentWindow?.();
       if (!win) return;
       btn.dataset.win === "close" ? win.close() : win.minimize();
     });
   }
+  // The window is a fixed size, so it cannot be maximised; aligning it
+  // to its display is the nearest thing that gesture can mean here.
+  document.querySelector(".rail")?.addEventListener("dblclick", (e) => {
+    if (!e.target.closest(".ctl")) align();
+  });
+}
+
+/* Marks the button when the display is absent, so a request that could
+   not be honoured says so rather than looking ignored. */
+async function align(btn) {
+  const moved = await alignWindow();
+  if (moved || !btn) return;
+  btn.classList.remove("is-miss");
+  void btn.offsetWidth;
+  btn.classList.add("is-miss");
 }
 
 /* -- boot ---------------------------------------------------------- */

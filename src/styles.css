@@ -179,6 +179,16 @@ html, body {
 .ctl svg { width: 10px; height: 10px; stroke: currentColor; stroke-width: 1.3; fill: none; stroke-linecap: round; }
 .ctl:hover { background: linear-gradient(180deg, #333A44, #272D35); color: var(--silk-bright); }
 .ctl--close:hover { background: linear-gradient(180deg, #A8422F, #8E3626); color: var(--paper); border-color: #6E2A1D; }
+/* The display the window aligns to is not connected. */
+.ctl.is-miss { animation: ctl-miss 320ms ease-out; }
+@keyframes ctl-miss {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-2px); }
+  75% { transform: translateX(2px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ctl.is-miss { animation: none; color: #A8422F; }
+}
 
 /* -- deck: recorder + carriage ------------------------------ */
 

@@ -1,3 +1,4 @@
+mod align;
 mod blocks;
 mod oauth;
 mod settings;
@@ -122,16 +123,29 @@ async fn get_snapshot(state: State<'_, App>) -> Result<Snapshot, String> {
     assemble(&state, &events, live.as_ref(), live_error)
 }
 
+/// Sends the window back to the panel it belongs on. False means that
+/// display is not connected, so nothing moved.
+#[tauri::command]
+fn align_window(window: tauri::WebviewWindow) -> bool {
+    align::align(&window)
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .manage(App::default())
         .setup(|app| {
+            // Placed before anything fallible, so a bad config dir can
+            // never leave the window hidden.
+            if let Some(win) = app.get_webview_window("main") {
+                align::align(&win);
+                let _ = win.show();
+            }
             let dir = app.path().app_config_dir()?;
             *app.state::<App>().config_dir.lock().unwrap() = dir;
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![get_snapshot])
+        .invoke_handler(tauri::generate_handler![get_snapshot, align_window])
         .run(tauri::generate_context!())
         .expect("error while running claude-usage-monitor");
 }
