@@ -11,6 +11,7 @@ it still works with the network off.
 npm install
 npm run tauri dev     # the panel
 npm run dev           # frontend only, on synthetic data
+npm run tauri build -- --no-bundle   # standalone exe; plain cargo builds load the dev server
 cd src-tauri && cargo test
 ```
 
