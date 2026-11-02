@@ -149,7 +149,59 @@ fn gpu(nvml: &Nvml) -> Option<Gpu> {
     })
 }
 
-fn sample(sys: &mut System, components: &mut Components, nvml: Option<&Nvml>, perf: Option<&perf::CpuPerf>) -> Stats {
+/// LibreHardwareMonitor's web server, when it is running. It reads the CPU's
+/// own sensor through a driver, which Windows otherwise keeps behind admin.
+const LHM_URL: &str = "http://localhost:8085/data.json";
+
+fn lhm_agent() -> ureq::Agent {
+    ureq::AgentBuilder::new()
+        // localhost must never be routed through a system proxy
+        .try_proxy_from_env(false)
+        .timeout(Duration::from_millis(500))
+        .build()
+}
+
+fn lhm_cpu_temp(agent: &ureq::Agent) -> Option<f32> {
+    let tree: serde_json::Value = agent.get(LHM_URL).call().ok()?.into_json().ok()?;
+    pick_lhm_cpu_temp(&tree)
+}
+
+/// Finds the CPU temperature in LibreHardwareMonitor's sensor tree,
+/// preferring what `cpu_temp` does: Tctl on AMD, Package on Intel.
+fn pick_lhm_cpu_temp(tree: &serde_json::Value) -> Option<f32> {
+    let mut temps = Vec::new();
+    collect_cpu_temps(tree, &mut temps);
+    let pick = |needle: &str| {
+        temps.iter().find(|(label, _)| label.to_lowercase().contains(needle)).map(|(_, c)| *c)
+    };
+    pick("tctl").or_else(|| pick("package")).or_else(|| temps.first().map(|(_, c)| *c))
+}
+
+fn collect_cpu_temps(node: &serde_json::Value, out: &mut Vec<(String, f32)>) {
+    let id = node["SensorId"].as_str().unwrap_or("");
+    if node["Type"] == "Temperature" && (id.starts_with("/amdcpu/") || id.starts_with("/intelcpu/")) {
+        // Values arrive formatted, e.g. "48.9 °C", with a comma in some locales.
+        let celsius = node["Value"]
+            .as_str()
+            .and_then(|v| v.split_whitespace().next())
+            .and_then(|n| n.replace(',', ".").parse().ok())
+            .filter(|c| valid_temp(*c));
+        if let Some(c) = celsius {
+            out.push((node["Text"].as_str().unwrap_or("").to_string(), c));
+        }
+    }
+    for child in node["Children"].as_array().into_iter().flatten() {
+        collect_cpu_temps(child, out);
+    }
+}
+
+fn sample(
+    sys: &mut System,
+    components: &mut Components,
+    nvml: Option<&Nvml>,
+    perf: Option<&perf::CpuPerf>,
+    lhm: &ureq::Agent,
+) -> Stats {
     sys.refresh_cpu_all();
     sys.refresh_memory();
     components.refresh(true);
@@ -165,7 +217,7 @@ fn sample(sys: &mut System, components: &mut Components, nvml: Option<&Nvml>, pe
         cpu_usage: sys.global_cpu_usage(),
         cpu_freq_mhz,
         cpu_brand: cpus.first().map(|c| c.brand().trim().to_string()).unwrap_or_default(),
-        cpu_temp: cpu_temp(components),
+        cpu_temp: cpu_temp(components).or_else(|| lhm_cpu_temp(lhm)),
         mem_total: sys.total_memory(),
         mem_used: sys.used_memory(),
         swap_total: sys.total_swap(),
@@ -181,8 +233,9 @@ pub fn spawn(handle: AppHandle) {
         // NVML ships with the NVIDIA driver; absent elsewhere, so the GPU row hides.
         let nvml = Nvml::init().ok();
         let perf = perf::CpuPerf::new();
+        let lhm = lhm_agent();
         loop {
-            let stats = sample(&mut sys, &mut components, nvml.as_ref(), perf.as_ref());
+            let stats = sample(&mut sys, &mut components, nvml.as_ref(), perf.as_ref(), &lhm);
             let _ = handle.emit("stats", stats);
             thread::sleep(Duration::from_millis(REFRESH_MS));
         }
@@ -197,7 +250,7 @@ mod tests {
     fn samples_this_machine() {
         let mut sys = System::new_all();
         let mut components = Components::new_with_refreshed_list();
-        let s = sample(&mut sys, &mut components, Nvml::init().ok().as_ref(), None);
+        let s = sample(&mut sys, &mut components, Nvml::init().ok().as_ref(), None, &lhm_agent());
         assert!(s.mem_total > 0 && s.mem_used <= s.mem_total);
         assert!((0.0..=100.0).contains(&s.cpu_usage));
         assert!(s.cpu_temp.map_or(true, valid_temp));
@@ -211,6 +264,26 @@ mod tests {
         let pct = perf.percent().expect("a second collection yields a value");
         // idle cores park well below base, boost runs past it
         assert!((5.0..300.0).contains(&pct), "implausible {pct}%");
+    }
+
+    /// Trimmed from a real data.json (Ryzen 5800X on an MSI X570 board).
+    #[test]
+    fn picks_tctl_from_librehardwaremonitor() {
+        let tree = serde_json::json!({ "Text": "Sensor", "Children": [{ "Text": "PC", "Children": [
+            { "Text": "Nuvoton NCT6797D", "Children": [{ "Text": "Temperatures", "Children": [
+                { "Text": "Temperature #3", "Value": "41.5 \u{b0}C", "SensorId": "/lpc/nct6797d/0/temperature/3", "Type": "Temperature" }
+            ]}]},
+            { "Text": "AMD Ryzen 7 5800X", "Children": [{ "Text": "Temperatures", "Children": [
+                { "Text": "CCD1 (Tdie)", "Value": "31.8 \u{b0}C", "SensorId": "/amdcpu/0/temperature/3", "Type": "Temperature" },
+                { "Text": "Core (Tctl/Tdie)", "Value": "48.9 \u{b0}C", "SensorId": "/amdcpu/0/temperature/2", "Type": "Temperature" }
+            ]}]}
+        ]}]});
+        assert_eq!(pick_lhm_cpu_temp(&tree), Some(48.9));
+
+        let comma = serde_json::json!({ "Text": "CPU Package", "Value": "61,5 \u{b0}C",
+            "SensorId": "/intelcpu/0/temperature/0", "Type": "Temperature" });
+        assert_eq!(pick_lhm_cpu_temp(&comma), Some(61.5));
+        assert_eq!(pick_lhm_cpu_temp(&serde_json::json!({ "Text": "Sensor" })), None);
     }
 
     #[test]

@@ -127,6 +127,24 @@ One motion moment on load; `prefers-reduced-motion` turns it all off.
 | [src-tauri/src/blocks.rs](src-tauri/src/blocks.rs) | block detection, snapshot |
 | [src-tauri/src/oauth.rs](src-tauri/src/oauth.rs) | live usage endpoint |
 | [src-tauri/src/settings.rs](src-tauri/src/settings.rs) | remembers the solved limit and the reset instants |
+| [src/system.js](src/system.js) | the System page: readouts and sparklines |
+| [src-tauri/src/system.rs](src-tauri/src/system.rs) | CPU, memory and GPU sampling, pushed as `stats` events |
+
+## System page
+
+Swipe right from the usage page. It samples every 1.5 s:
+
+- **CPU load, RAM, swap** from `sysinfo`.
+- **CPU clock** from the Windows `% Processor Performance` counter, scaled from
+  the base clock, so it follows boost. Elsewhere it is `sysinfo`'s figure.
+- **GPU** (load, clock, power, temperature, VRAM, fan) from NVML, which ships
+  with the NVIDIA driver. With no NVIDIA GPU the row hides.
+- **CPU temperature.** Windows only exposes it to tools with a kernel driver, so
+  the app reads it from [LibreHardwareMonitor](https://github.com/LibreHardwareMonitor/LibreHardwareMonitor)
+  when that is running, and never needs admin itself. Set it up once: run it
+  (it asks for admin to load its driver), turn on Options → Remote Web Server
+  → Run on the default port 8085, and Options → Run On Windows Startup. Without
+  it the temperature line hides. On Linux `sysinfo` reads it directly.
 
 ## Notes
 
