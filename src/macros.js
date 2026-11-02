@@ -79,7 +79,7 @@ function fitLens(key) {
   const map = $("glass-map");
   map.setAttribute("width", w);
   map.setAttribute("height", h);
-  map.setAttribute("href", lensMap(w, h, r, 14));
+  map.setAttribute("href", lensMap(w, h, r, 10));
 }
 
 async function fire(btn, index, label) {

@@ -580,14 +580,14 @@ body[data-page="macros"] { --accent: var(--ink-violet); }
 
 /* -- macros page ---------------------------------------------- */
 
-.macros { display: flex; }
+.macros { display: flex; padding: 10px 20px 20px; }
 
 .macro-grid {
   flex: 1 1 auto;
   display: grid;
   grid-template-columns: repeat(var(--cols, 5), minmax(0, 1fr));
   grid-auto-rows: minmax(0, 1fr);
-  gap: 10px;
+  gap: 22px;
 }
 .macro-grid[hidden] { display: none; }
 
@@ -605,7 +605,7 @@ body[data-page="macros"] { --accent: var(--ink-violet); }
   align-items: center;
   justify-content: center;
   gap: 10px;
-  padding: 12px 10px;
+  padding: 12px 6px;
   overflow: hidden;
   border-radius: var(--radius);
   border: 1px solid #000;
