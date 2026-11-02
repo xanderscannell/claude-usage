@@ -186,7 +186,8 @@ function render() {
 
 function wireWindowControls() {
   const api = globalThis.__TAURI__?.window;
-  for (const btn of document.querySelectorAll(".ctl")) {
+  // Only the window buttons: the theme button shares their look, not their job.
+  for (const btn of document.querySelectorAll(".ctl[data-win]")) {
     btn.addEventListener("click", () => {
       if (btn.dataset.win === "align") return align(btn);
       const win = api?.getCurrentWindow?.();
