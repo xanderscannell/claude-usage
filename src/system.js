@@ -58,7 +58,7 @@ function drawSparkline(canvas, data) {
   data.forEach((v, i) => ctx.lineTo(i * stepX, yOf(v)));
   ctx.lineTo(W, H);
   ctx.closePath();
-  // The wash fades to nothing at the card's edge, as on ponytail's board.
+  // The wash fades to nothing at the card's edge.
   const wash = ctx.createLinearGradient(0, top, 0, H);
   wash.addColorStop(0, color + "66");
   wash.addColorStop(1, color + "00");

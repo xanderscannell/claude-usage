@@ -78,7 +78,7 @@ export function drawChart({ svg, paper, penEl, snap, hidden, reduced }) {
   const wipe = el("rect", { x: x0 - 1, y: 0, width: 0, height: H });
   clip.append(wipe);
   defs.append(hatch, clip);
-  /* each model's wash fades from its edge to the baseline, as on ponytail's board */
+  /* each model's wash fades from its edge to the baseline */
   INKS.forEach((ink, i) => {
     const g = el("linearGradient", { id: `wash${i}`, x1: 0, y1: 0, x2: 0, y2: 1 });
     g.append(
