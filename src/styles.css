@@ -624,11 +624,10 @@ body[data-page="macros"] { --accent: var(--ink-violet); }
   inset: var(--bezel);
   z-index: -1;
   border-radius: calc(var(--radius) - var(--bezel));
+  /* the key's colour, glowing up from below like the charts */
   background:
-    radial-gradient(90% 75% at 50% 36%,
-      color-mix(in srgb, var(--key) 55%, #000) 0%,
-      color-mix(in srgb, var(--key) 22%, #050507) 50%,
-      #050507 100%);
+    radial-gradient(120% 70% at 50% 120%, color-mix(in srgb, var(--key) 30%, transparent), transparent 70%),
+    var(--card);
   transition: filter 120ms ease;
 }
 
@@ -649,8 +648,7 @@ body[data-page="macros"] { --accent: var(--ink-violet); }
     inset -1px 0 1px rgba(255, 255, 255, 0.1),
     inset 0 0 14px rgba(255, 255, 255, 0.06);
   /* #glass is the rim lens macros.js builds; it needs Chromium, which WebView2 is */
-  backdrop-filter: saturate(1.5) brightness(1.08);
-  backdrop-filter: url(#glass) saturate(1.5) brightness(1.08);
+  backdrop-filter: url(#glass);
 }
 
 .macro:active { transform: scale(0.96); }
@@ -661,8 +659,8 @@ body[data-page="macros"] { --accent: var(--ink-violet); }
   font-size: 46px;
   line-height: 1;
   font-variant-emoji: text;
-  color: color-mix(in srgb, var(--key) 70%, #fff);
-  text-shadow: 0 0 18px var(--key);
+  color: var(--key);
+  text-shadow: 0 0 16px color-mix(in srgb, var(--key) 55%, transparent);
 }
 .macro__label {
   max-width: 100%;
