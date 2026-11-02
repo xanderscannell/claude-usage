@@ -100,3 +100,19 @@ export function mockStats() {
     },
   };
 }
+
+/* The starter macros.json, as `get_macros` returns it. */
+export function mockMacros() {
+  const b = (label, icon, color) => ({ label, icon, color, error: null });
+  return {
+    path: "%APPDATA%\dev.xander.claude-usage\macros.json",
+    columns: 5,
+    error: null,
+    buttons: [
+      b("Previous", "⏮"), b("Play / Pause", "⏯", "#55A87A"), b("Next", "⏭"),
+      b("Volume −", "−"), b("Volume +", "+"), b("Mute", "×"),
+      b("Snip", "✂", "#5B8FDD"), b("Task Manager", "▦"),
+      b("Claude", "✳", "#C2513A"), b("Copy date", "▤", "#9B7BD4"),
+    ],
+  };
+}

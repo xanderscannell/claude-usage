@@ -1,7 +1,7 @@
 /* Talks to the Rust side. Falls back to a synthetic block when the page
    is opened in a plain browser, so `npm run dev` still renders. */
 
-import { mockSnapshot } from "./mock.js";
+import { mockMacros, mockSnapshot } from "./mock.js";
 
 const core = globalThis.__TAURI__?.core;
 export const live = typeof core?.invoke === "function";
@@ -22,3 +22,15 @@ export async function alignWindow() {
   return call("align_window");
 }
 
+
+/* The Macros page. The page names a button by position and label only;
+   what it does lives in macros.json on the Rust side. */
+export async function getMacros() {
+  if (!live) return mockMacros();
+  return call("get_macros");
+}
+
+export async function runMacro(index, label) {
+  if (!live) return;
+  return call("run_macro", { index, label });
+}

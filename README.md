@@ -129,6 +129,8 @@ One motion moment on load; `prefers-reduced-motion` turns it all off.
 | [src-tauri/src/settings.rs](src-tauri/src/settings.rs) | remembers the solved limit and the reset instants |
 | [src/system.js](src/system.js) | the System page: readouts and sparklines |
 | [src-tauri/src/system.rs](src-tauri/src/system.rs) | CPU, memory and GPU sampling, pushed as `stats` events |
+| [src/macros.js](src/macros.js) | the Macros page grid |
+| [src-tauri/src/macros.rs](src-tauri/src/macros.rs) | reads macros.json and runs a button's action |
 
 ## System page
 
@@ -146,6 +148,48 @@ Swipe right from the usage page. It samples every 1.5 s:
   → Run on the default port 8085, and Options → Run On Windows Startup. Without
   it the temperature line hides. On Linux `sysinfo` reads it directly.
 
+## Macros page
+
+Swipe right twice. The buttons come from `macros.json` in
+`%APPDATA%\dev.xander.claude-usage`, written with a starter set on first run.
+Saving the file updates the page within two seconds. A mistake shows on the
+button it belongs to, or in place of the grid if the file will not parse.
+
+```json
+{
+  "columns": 5,
+  "buttons": [
+    { "label": "Play / Pause", "icon": "⏯", "color": "#55A87A", "media": "play_pause" },
+    { "label": "Mute Discord", "keys": "ctrl+shift+m" },
+    { "label": "Spotify", "open": "spotify:" },
+    { "label": "OBS", "open": "C:\\Program Files\\obs-studio\\bin\\64bit\\obs64.exe", "args": "--minimize-to-tray" },
+    { "label": "Headphones", "run": "Set-AudioDevice -Index 2" }
+  ]
+}
+```
+
+Each button has a `label`, an optional `icon` (any text; symbols such as ⏯ ✂ ▦
+render in the button's colour) and `color`, and exactly one action:
+
+| | |
+| --- | --- |
+| `media` | `play_pause`, `next`, `previous`, `stop`, `volume_up`, `volume_down`, `mute` |
+| `keys` | a combo such as `ctrl+shift+m`: `ctrl` `shift` `alt` `win`, letters, digits, `f1`-`f24`, `enter` `esc` `tab` `space` `backspace` `delete` `insert` `home` `end` `pageup` `pagedown` `up` `down` `left` `right` `printscreen` `plus` `minus` |
+| `open` | a program, file, folder or URL, as if double-clicked; `args` passes arguments to a program |
+| `run` | a PowerShell command, run hidden |
+
+Backslashes in paths are doubled, as JSON requires. `Set-AudioDevice` above comes
+from the `AudioDeviceCmdlets` module (`Install-Module AudioDeviceCmdlets`).
+
+The window cannot take focus (`focusable: false`), so a tap leaves keyboard focus
+with the app you were using and `keys` lands there. It also means the arrow
+keys no longer turn pages. Windows will not let the panel type into an app
+running as administrator unless the panel runs as administrator too.
+
+The page only ever sends a button's position and label; the action is read
+from the file on the Rust side, so nothing in the webview can name a command
+to run.
+
 ## Notes
 
 - The webview runs under a strict CSP: `script-src 'self'`, `object-src 'none'`,
@@ -153,7 +197,8 @@ Swipe right from the usage page. It samples every 1.5 s:
   allows `'unsafe-inline'` because Vite injects `<style>` blocks in dev; vendoring
   the fonts would let that come out too. `freezePrototype` is on, and the app is
   granted no filesystem, shell, or HTTP plugin permissions — only window
-  close/minimize/drag.
+  close/minimize/drag. Macros run on the Rust side, and only as macros.json
+  describes them.
 - Window chrome is drawn by the frontend (`decorations: false`), so the title rail
   is the drag region and carries its own minimize/close.
 - Window controls use `withGlobalTauri`, so there is no JS dependency on Tauri and

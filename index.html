@@ -24,7 +24,7 @@
 
         <span class="rec" data-for="macros" aria-hidden="true" hidden></span>
         <h1 class="wordmark" data-for="macros" hidden>Macros</h1>
-        <span class="silk silk--dim unit" data-for="macros" hidden>Tap to run</span>
+        <span class="silk silk--dim unit" id="macro-note" data-for="macros" hidden>Tap to run</span>
       </div>
 
       <div class="rail__reset" data-for="usage" data-tauri-drag-region>
@@ -146,7 +146,10 @@
       </div>
     </div>
   </section>
-  <section class="page page--todo" data-page="macros" aria-label="Macros"><p class="silk">Macros</p></section>
+  <section class="page macros" data-page="macros" aria-label="Macros">
+    <div class="macro-grid" id="macro-grid"></div>
+    <p class="macro-empty" id="macro-empty" hidden></p>
+  </section>
   </div>
 
   <nav class="dots" id="dots" aria-label="Pages"></nav>

@@ -612,3 +612,104 @@ header.rail {
   overflow: hidden;
 }
 .sys-paper canvas { display: block; width: 100%; height: 100%; }
+
+/* -- macros page ------------------------------------------------ */
+
+.macros {
+  display: flex;
+  padding: 12px var(--gutter) 16px;
+}
+
+.macro-grid {
+  flex: 1 1 auto;
+  display: grid;
+  grid-template-columns: repeat(var(--cols, 5), minmax(0, 1fr));
+  grid-auto-rows: minmax(0, 1fr);
+  gap: 10px;
+}
+.macro-grid[hidden] { display: none; }
+
+.macro {
+  --key: var(--accent);
+  position: relative;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 12px 8px 10px;
+  overflow: hidden;
+  border-radius: 3px;
+  border: 1px solid var(--panel-edge);
+  background: linear-gradient(180deg, #2A3038, var(--panel));
+  box-shadow: inset 0 1px 0 var(--panel-hi);
+  color: var(--silk-bright);
+  font: inherit;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: transform 80ms ease, background 120ms ease;
+}
+/* the key's colour, as a cap along the top edge */
+.macro::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 4px;
+  background: var(--key);
+}
+.macro:active {
+  transform: translateY(1px) scale(0.98);
+  background: linear-gradient(180deg, #333A44, #272D35);
+}
+.macro:disabled { cursor: default; opacity: 0.7; }
+
+.macro__icon {
+  font-size: 46px;
+  line-height: 1;
+  font-variant-emoji: text;
+  color: var(--key);
+}
+.macro__label {
+  max-width: 100%;
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.15;
+  font-variation-settings: "wdth" 108;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+.macro__error {
+  font-family: var(--font-silk);
+  font-size: 10px;
+  line-height: 1.3;
+  text-align: center;
+  color: #D08A5E;
+}
+
+.macro.is-fired { animation: macro-fired 500ms ease-out; }
+@keyframes macro-fired {
+  from { box-shadow: inset 0 0 0 2px var(--key), 0 0 16px color-mix(in srgb, var(--key) 60%, transparent); }
+}
+.macro.is-miss { animation: ctl-miss 320ms ease-out; }
+
+.macro-empty {
+  flex: 1 1 auto;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 0 40px;
+  text-align: center;
+}
+.macro-empty[hidden] { display: none; }
+.macro-empty__why { font-size: 18px; font-weight: 600; color: #D08A5E; }
+.macro-empty__path {
+  font-family: var(--font-silk);
+  font-size: 12px;
+  color: var(--silk);
+  overflow-wrap: anywhere;
+  user-select: text;
+}

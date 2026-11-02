@@ -1,5 +1,6 @@
 mod align;
 mod blocks;
+mod macros;
 mod oauth;
 mod settings;
 mod system;
@@ -124,6 +125,21 @@ async fn get_snapshot(state: State<'_, App>) -> Result<Snapshot, String> {
     assemble(&state, &events, live.as_ref(), live_error)
 }
 
+#[tauri::command]
+fn get_macros(state: State<App>) -> Result<macros::View, String> {
+    Ok(macros::view(&config_dir(&state)?))
+}
+
+/// Runs the button at `index`, if it still carries `label`. Only ever what
+/// macros.json says; the page cannot name a command of its own.
+#[tauri::command]
+async fn run_macro(state: State<'_, App>, index: usize, label: String) -> Result<(), String> {
+    let dir = config_dir(&state)?;
+    tauri::async_runtime::spawn_blocking(move || macros::run(&dir, index, &label))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
 /// Sends the window back to the panel it belongs on. False means that
 /// display is not connected, so nothing moved.
 #[tauri::command]
@@ -147,7 +163,7 @@ pub fn run() {
             *app.state::<App>().config_dir.lock().unwrap() = dir;
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![get_snapshot, align_window])
+        .invoke_handler(tauri::generate_handler![get_snapshot, align_window, get_macros, run_macro])
         .run(tauri::generate_context!())
         .expect("error while running claude-usage-monitor");
 }
