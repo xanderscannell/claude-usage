@@ -18,7 +18,7 @@
         <h1 class="wordmark" data-for="usage">Claude Usage</h1>
         <span class="silk silk--dim unit" id="unit-mark" data-for="usage">5-hour block</span>
 
-        <span class="rec" data-for="system" aria-hidden="true" hidden></span>
+        <span class="rec rec--dark" id="sys-rec" data-for="system" aria-hidden="true" hidden></span>
         <h1 class="wordmark" data-for="system" hidden>System</h1>
         <span class="silk silk--dim unit" data-for="system" hidden>CPU · GPU · Memory</span>
 
@@ -30,6 +30,11 @@
       <div class="rail__reset" data-for="usage" data-tauri-drag-region>
         <span class="silk silk--dim" id="reset-label">Block resets in</span>
         <span class="clock" id="reset-clock">—</span>
+      </div>
+
+      <div class="rail__reset" data-for="system" data-tauri-drag-region hidden>
+        <span class="silk silk--dim" id="sys-date">—</span>
+        <span class="clock" id="sys-clock">—</span>
       </div>
 
       <div class="rail__ctl">
@@ -92,7 +97,53 @@
 
   </div>
 
-  <section class="page page--todo" data-page="system" aria-label="System"><p class="silk">System monitor</p></section>
+  <section class="page sys" data-page="system" aria-label="System">
+    <div class="sys-row" id="cpu-row" style="--nib: var(--ui-blue)">
+      <h2 class="sys-spine">CPU</h2>
+      <div class="readout readout--hero sys-hero">
+        <span class="readout__value"><span id="cpu-pct">--</span><span class="readout__unit">%</span></span>
+        <span class="silk readout__label" id="cpu-clock">-- GHz</span>
+      </div>
+      <div class="sys-meters">
+        <span class="sys-temp" id="cpu-temp">--°</span>
+        <div class="sys-meter">
+          <span class="silk">RAM</span><span class="silk"><b id="cpu-ram">--</b></span>
+          <span class="pen-ch__bar"><i id="bar-ram"></i></span>
+        </div>
+        <div class="sys-meter">
+          <span class="silk">Swap</span><span class="silk"><b id="cpu-swap">--</b></span>
+          <span class="pen-ch__bar"><i id="bar-swap"></i></span>
+        </div>
+      </div>
+      <div class="sys-graph">
+        <span class="silk silk--dim sys-name" id="cpu-name">Processor</span>
+        <div class="sys-paper"><canvas id="cpu-canvas" aria-hidden="true"></canvas></div>
+      </div>
+    </div>
+
+    <div class="sys-row" id="gpu-row" style="--nib: var(--ui-violet)" hidden>
+      <h2 class="sys-spine">GPU</h2>
+      <div class="readout readout--hero sys-hero">
+        <span class="readout__value"><span id="gpu-pct">--</span><span class="readout__unit">%</span></span>
+        <span class="silk readout__label" id="gpu-clock">-- MHz</span>
+      </div>
+      <div class="sys-meters">
+        <span class="sys-temp" id="gpu-temp">--°</span>
+        <div class="sys-meter">
+          <span class="silk">VRAM</span><span class="silk"><b id="gpu-vram">--</b></span>
+          <span class="pen-ch__bar"><i id="bar-vram"></i></span>
+        </div>
+        <div class="sys-meter">
+          <span class="silk">Fan</span><span class="silk"><b id="gpu-fan">--</b></span>
+          <span class="pen-ch__bar"><i id="bar-fan"></i></span>
+        </div>
+      </div>
+      <div class="sys-graph">
+        <span class="silk silk--dim sys-name" id="gpu-name">Graphics</span>
+        <div class="sys-paper"><canvas id="gpu-canvas" aria-hidden="true"></canvas></div>
+      </div>
+    </div>
+  </section>
   <section class="page page--todo" data-page="macros" aria-label="Macros"><p class="silk">Macros</p></section>
   </div>
 

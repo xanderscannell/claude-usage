@@ -2,6 +2,7 @@ mod align;
 mod blocks;
 mod oauth;
 mod settings;
+mod system;
 mod usage;
 
 use blocks::Snapshot;
@@ -141,6 +142,7 @@ pub fn run() {
                 align::align(&win);
                 let _ = win.show();
             }
+            system::spawn(app.handle().clone());
             let dir = app.path().app_config_dir()?;
             *app.state::<App>().config_dir.lock().unwrap() = dir;
             Ok(())

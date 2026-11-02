@@ -73,3 +73,30 @@ export function mockSnapshot() {
     },
   };
 }
+
+/* Synthetic `stats` event, in the shape the Rust sampler emits. */
+let load = 30;
+export function mockStats() {
+  load = Math.max(3, Math.min(97, load + (Math.random() - 0.5) * 18));
+  const G = 1024 ** 3;
+  return {
+    cpuUsage: load,
+    cpuFreqMhz: 4200 + Math.round(Math.random() * 500),
+    cpuBrand: "AMD Ryzen 7 7800X3D 8-Core Processor",
+    cpuTemp: 48 + load / 5,
+    memTotal: 32 * G,
+    memUsed: 14.2 * G,
+    swapTotal: 8 * G,
+    swapUsed: 0.6 * G,
+    gpu: {
+      name: "NVIDIA GeForce RTX 4080",
+      temp: 52,
+      util: Math.round(load * 0.8),
+      clockMhz: 2610,
+      fan: 38,
+      memUsed: 6.1 * G,
+      memTotal: 16 * G,
+      powerW: 120 + load * 2,
+    },
+  };
+}

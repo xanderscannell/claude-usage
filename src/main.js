@@ -1,5 +1,6 @@
 import { alignWindow, getSnapshot, live } from "./api.js";
 import { drawChart, UI_INKS } from "./chart.js";
+import { wireSystem } from "./system.js";
 
 const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
 const POLL_MS = 5000;
@@ -280,6 +281,7 @@ async function poll() {
 async function boot() {
   wireWindowControls();
   wirePager();
+  wireSystem();
   if (!live) document.body.classList.add("is-demo");
   await poll();
   setInterval(poll, POLL_MS);

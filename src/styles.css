@@ -458,3 +458,93 @@ header.rail {
 .silk--live { color: #7FB08A; }
 
 
+
+/* -- system page ------------------------------------------------ */
+
+.sys {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px var(--gutter) 14px;
+}
+
+.sys-row {
+  flex: 1 1 0;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 30px 182px 186px 1fr;
+  gap: 16px;
+  padding: 12px 12px 12px 0;
+  border-radius: 2px;
+  background: linear-gradient(180deg, #232830, var(--panel));
+  border: 1px solid var(--panel-edge);
+  box-shadow: inset 0 1px 0 var(--panel-hi);
+}
+.sys-row[hidden] { display: none; }
+
+/* Each row's pen colour runs down its spine, as on the usage legend. */
+.sys-spine {
+  margin: -12px 0;
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  display: grid;
+  place-items: center;
+  font-size: 15px;
+  font-weight: 700;
+  font-variation-settings: "wdth" 125;
+  letter-spacing: 0.24em;
+  color: var(--nib);
+  border-right: 2px solid var(--nib);
+  background: linear-gradient(0deg, color-mix(in srgb, var(--nib) 14%, transparent), transparent 75%);
+}
+
+.sys-hero { justify-content: center; }
+.sys-hero .readout__value { font-size: 64px; }
+
+.sys-meters {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 11px;
+}
+.sys-temp {
+  font-size: 27px;
+  font-weight: 700;
+  line-height: 0.9;
+  font-variation-settings: "wdth" 125;
+  font-variant-numeric: tabular-nums;
+  color: var(--silk-bright);
+}
+.sys-meter {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  row-gap: 6px;
+}
+.sys-meter .pen-ch__bar { height: 5px; }
+.sys-meter .pen-ch__bar i {
+  width: var(--fill, 0%);
+  transition: width 600ms cubic-bezier(0.22, 0.85, 0.3, 1);
+}
+
+.sys-graph {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.sys-name {
+  text-align: right;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.sys-paper {
+  flex: 1 1 0;
+  min-height: 0;
+  border-radius: 2px;
+  background: var(--paper);
+  border: 1px solid #0A0C0F;
+  box-shadow: inset 0 2px 7px rgba(10, 12, 15, 0.45);
+  overflow: hidden;
+}
+.sys-paper canvas { display: block; width: 100%; height: 100%; }
