@@ -101,6 +101,20 @@
   --key-deepen: 30%;
 }
 
+/* Bundled, so the panel looks the same with the network off. OFL.txt sits beside them. */
+@font-face {
+  font-family: "Geist";
+  src: url("./fonts/Geist-Variable.woff2") format("woff2");
+  font-weight: 100 900;
+  font-display: block;
+}
+@font-face {
+  font-family: "Geist Mono";
+  src: url("./fonts/GeistMono-Variable.woff2") format("woff2");
+  font-weight: 100 900;
+  font-display: block;
+}
+
 * { box-sizing: border-box; }
 
 html, body {

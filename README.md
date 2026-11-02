@@ -123,6 +123,6 @@ The page only ever sends a button's position and label. The action is read from 
 
 ## Credits
 
-- Type is [Geist and Geist Mono](https://vercel.com/font), under the SIL Open Font License.
+- Type is [Geist and Geist Mono](https://vercel.com/font), bundled under the SIL Open Font License.
 - CPU temperature comes from [LibreHardwareMonitor](https://github.com/LibreHardwareMonitor/LibreHardwareMonitor).
 - An unofficial tool, not made by or affiliated with Anthropic.

@@ -144,9 +144,9 @@ It samples every 1.5 s:
 ## Notes
 
 - The webview runs under a strict CSP: `script-src 'self'`, `object-src 'none'`,
-  and network limited to the IPC channel plus Google Fonts. `style-src` still
-  allows `'unsafe-inline'` because Vite injects `<style>` blocks in dev; vendoring
-  the fonts would let that come out too. `freezePrototype` is on, and the app is
+  and network limited to the IPC channel; nothing loads from outside the app.
+  `style-src` still allows `'unsafe-inline'` because Vite injects `<style>` blocks
+  in dev and the markup sets a few `style` attributes. `freezePrototype` is on, and the app is
   granted no filesystem, shell, or HTTP plugin permissions, only window
   close/minimize/drag. Macros run on the Rust side, and only as macros.json
   describes them.
@@ -159,8 +159,8 @@ It samples every 1.5 s:
   is the drag region and carries its own minimize/close.
 - Window controls use `withGlobalTauri`, so there is no JS dependency on Tauri and
   the panel still runs in a plain browser.
-- Fonts come from Google Fonts. Vendor them into `src/` before shipping so the
-  panel renders offline.
+- Geist and Geist Mono are bundled in [src/fonts](../src/fonts) with their license
+  ([OFL.txt](../src/fonts/OFL.txt)), so the panel looks the same offline.
 - Weekly usage comes from the endpoint's `seven_day` window, with its real reset
   time. Without live data it falls back to a rolling 7-day total labelled `7-day`
   and claims no reset schedule, because the logs do not record one.
