@@ -4,9 +4,9 @@
 import { mockStats } from "./mock.js";
 
 const HISTORY = 64;
-// Ink on paper, matching the usage chart's pens.
-const INK = { cpu: "#1F4E9C", gpu: "#5B3E8E" };
-const GRID = "rgba(194, 81, 58, 0.28)";
+// Canvas cannot read CSS variables, so these restate --ink-sky and --ink-violet.
+const INK = { cpu: "#60A5FA", gpu: "#C084FC" };
+const GRID = "rgba(255, 255, 255, 0.07)";
 
 const $ = (id) => document.getElementById(id);
 const cpuData = new Array(HISTORY).fill(0);
@@ -37,9 +37,11 @@ function drawSparkline(canvas, data, color) {
   ctx.clearRect(0, 0, W, H);
 
   const stepX = W / (data.length - 1);
-  const yOf = (v) => H - (Math.max(0, Math.min(100, v)) / 100) * (H - 4 * dpr) - 2 * dpr;
 
-  // Quarter rules, in the chart paper's oxide red.
+  // Room for the processor name above the 100% line.
+  const top = 44 * dpr;
+  const yOf = (v) => H - (Math.max(0, Math.min(100, v)) / 100) * (H - top);
+
   ctx.strokeStyle = GRID;
   ctx.lineWidth = dpr;
   for (const q of [25, 50, 75]) {
@@ -55,15 +57,22 @@ function drawSparkline(canvas, data, color) {
   data.forEach((v, i) => ctx.lineTo(i * stepX, yOf(v)));
   ctx.lineTo(W, H);
   ctx.closePath();
-  ctx.fillStyle = color + "40";
+  // The wash fades to nothing at the card's edge, as on ponytail's board.
+  const wash = ctx.createLinearGradient(0, top, 0, H);
+  wash.addColorStop(0, color + "66");
+  wash.addColorStop(1, color + "00");
+  ctx.fillStyle = wash;
   ctx.fill();
 
   ctx.beginPath();
   data.forEach((v, i) => (i === 0 ? ctx.moveTo(0, yOf(v)) : ctx.lineTo(i * stepX, yOf(v))));
   ctx.strokeStyle = color;
-  ctx.lineWidth = 1.6 * dpr;
+  ctx.lineWidth = 2.5 * dpr;
   ctx.lineJoin = "round";
+  ctx.shadowColor = color;
+  ctx.shadowBlur = 10 * dpr;
   ctx.stroke();
+  ctx.shadowBlur = 0;
 }
 
 function render(s) {

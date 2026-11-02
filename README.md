@@ -102,25 +102,27 @@ Constraints on the credential path:
 A rolling-window recorder was the wrong metaphor, but a chart recorder was the
 right one. The rules that carry information:
 
-- **Oxide red belongs to the scale** — grid, limit line, over-range band, and the
-  projected crossing. A model is never red. If something on the paper is red, it
+- **Red belongs to the limit**: the limit line, over-range band, and the
+  projected crossing. A model is never red. If something on the chart is red, it
   is telling you about the ceiling.
-- **Models are ink pens.** Graphite stacks at the baseline so it can never fuse
-  with the graphite total pen riding the top. Each channel signs its own boundary
-  at full ink.
-- **The total is its own pen and always writes.** Toggling a channel lifts its
+- **Each model is a coloured series.** Its wash fades to the baseline and its
+  boundary glows, and the same colour marks its dot in the legend.
+- **The total is its own white line and always draws.** Toggling a model lifts its
   wash but leaves the total line, so the gap you open is that model's contribution.
-- **One pen means no legend.** A single model's percentage *is* the hero number,
-  so the legend collapses and the paper takes the space.
+- **One model means no legend.** A single model's percentage *is* the hero number,
+  so the legend collapses and the chart takes the space.
 
-Type is Archivo at width 125 for readouts and Martian Mono for silkscreen labels.
-One motion moment on load; `prefers-reduced-motion` turns it all off.
+Every page shares one look, after ponytail's board: black ground, quiet cards, a
+coloured dot naming each series, numbers set large. The panel is a 5-inch display
+read from a few feet away, so no text is smaller than 14px. Type is Geist for
+labels and Geist Mono for numbers. One motion moment on load;
+`prefers-reduced-motion` turns it all off.
 
 ## Layout
 
 | | |
 | --- | --- |
-| [src/chart.js](src/chart.js) | the paper — scale, pens, projection |
+| [src/chart.js](src/chart.js) | the usage chart: scale, series, projection |
 | [src/main.js](src/main.js) | polling, readouts, status |
 | [src/api.js](src/api.js) | IPC, with a synthetic fallback for browser dev |
 | [src-tauri/src/usage.rs](src-tauri/src/usage.rs) | log scanning, dedup, weighting |

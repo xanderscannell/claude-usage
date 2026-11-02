@@ -1,5 +1,5 @@
 import { alignWindow, getSnapshot, live, touchEnded } from "./api.js";
-import { drawChart, UI_INKS } from "./chart.js";
+import { drawChart, INKS } from "./chart.js";
 import { wireSystem } from "./system.js";
 import { wireMacros } from "./macros.js";
 
@@ -61,7 +61,7 @@ function paintPens() {
     penKey = key;
     host.replaceChildren();
     snap.series.forEach((s, i) => {
-      const nib = UI_INKS[i % UI_INKS.length];
+      const nib = INKS[i % INKS.length];
       const btn = document.createElement("button");
       btn.type = "button";
       btn.className = "pen-ch";

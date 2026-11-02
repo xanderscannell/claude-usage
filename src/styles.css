@@ -1,40 +1,40 @@
 /* -------------------------------------------------------------
-   Claude Usage - a multi-pen strip-chart recorder for the
-   5-hour rolling window. Fixed 800x480 instrument panel.
+   Claude Usage - three pages on a fixed 800x480 panel, a 5-inch
+   display read from a few feet away. After ponytail's board:
+   black ground, quiet cards, a coloured dot naming each series,
+   numbers set large in mono, charts that glow.
 
-   Colour rule: oxide red belongs to the SCALE (grid, limit
-   band) and is never a model. Models are ink pens.
+   Nothing is smaller than 14px. Colour rule: red belongs to the
+   limit and is never a model.
    ------------------------------------------------------------- */
 
 :root {
-  --case:        #14171B;
-  --panel:       #1E232A;
-  --panel-edge:  #0B0D10;
-  --panel-hi:    rgba(255, 255, 255, 0.055);
+  --ground:    #000000;
+  --card:      #0E0E10;
+  --card-up:   #17171A;
+  --edge:      #222226;
+  --rule:      rgba(255, 255, 255, 0.07);
 
-  --silk:        #7E8894;
-  --silk-dim:    #5D6672;
-  --silk-bright: #E9E8DC;
+  --text:      #F2F2F3;
+  --muted:     #A0A0A8;
+  --faint:     #82828C;
 
-  --paper:       #E9E8DC;
-  --paper-low:   #DFDDCE;
-  --grid:        #C2513A;
+  --limit:     #F87171;
+  --warn:      #FBBF24;
+  --live:      #4ADE80;
 
-  --ink-blue:     #1F4E9C;
-  --ink-green:    #2F6B4A;
-  --ink-graphite: #23262B;
-  --ink-violet:   #5B3E8E;
+  /* series inks: models on the usage chart, CPU and GPU on the system page */
+  --ink-blue:   #818CF8;
+  --ink-teal:   #2DD4BF;
+  --ink-amber:  #FBBF24;
+  --ink-violet: #C084FC;
+  --ink-sky:    #60A5FA;
 
-  /* the same three pens, lifted so they read on the dark faceplate */
-  --ui-blue:     #5B8FDD;
-  --ui-green:    #55A87A;
-  --ui-graphite: #AEB4BE;
-  --ui-violet:   #9B7BD4;
+  --font-sans: "Geist", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
 
-  --font-display: "Archivo", "Helvetica Neue", Arial, sans-serif;
-  --font-silk:    "Martian Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
-
-  --gutter: 14px;
+  --gutter: 12px;
+  --radius: 16px;
 }
 
 * { box-sizing: border-box; }
@@ -44,9 +44,10 @@ html, body {
   width: 800px;
   height: 480px;
   overflow: hidden;
-  background: var(--case);
-  color: var(--silk-bright);
-  font-family: var(--font-display);
+  background: var(--ground);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: 16px;
   -webkit-font-smoothing: antialiased;
   cursor: default;
   user-select: none;
@@ -59,29 +60,53 @@ html, body {
 }
 
 :focus-visible {
-  outline: 2px solid var(--paper);
+  outline: 2px solid var(--text);
   outline-offset: 2px;
 }
 
-/* -- pages -------------------------------------------------- */
+.card {
+  border-radius: var(--radius);
+  background: var(--card);
+  border: 1px solid var(--edge);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.035);
+}
 
-/* Each page's theme. Registered so the title rail fades between them. */
+/* -- text ---------------------------------------------------- */
+
+.silk {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--muted);
+}
+.silk--dim { color: var(--faint); }
+.silk b {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  color: var(--text);
+}
+.silk--warn { color: var(--warn); }
+.silk--live { color: var(--live); }
+
+/* -- pages --------------------------------------------------- */
+
+/* Each page's colour. Registered so the header fades between them. */
 @property --accent {
   syntax: "<color>";
   inherits: true;
-  initial-value: #C2513A;
+  initial-value: #FB923C;
 }
 body {
   position: relative;
   display: grid;
-  grid-template-rows: 38px 1fr;
+  grid-template-rows: 52px 1fr;
+  grid-template-columns: minmax(0, 1fr);
   transition: --accent 400ms ease;
 }
-body[data-page="usage"]  { --accent: #C2513A; }
-body[data-page="system"] { --accent: #5B8FDD; }
-body[data-page="macros"] { --accent: #9B7BD4; }
+body[data-page="usage"]  { --accent: #FB923C; }
+body[data-page="system"] { --accent: var(--ink-sky); }
+body[data-page="macros"] { --accent: var(--ink-violet); }
 
-/* The rail's flex/grid displays would otherwise beat [hidden]. */
+/* The rail's flex displays would otherwise beat [hidden]. */
 .rail [hidden] { display: none; }
 
 /* Scroll-snap gives touch swipes for free; overscroll-behavior stops a
@@ -101,18 +126,76 @@ body[data-page="macros"] { --accent: #9B7BD4; }
   flex: 0 0 800px;
   scroll-snap-align: start;
   scroll-snap-stop: always;
+  padding: 0 var(--gutter) var(--gutter);
 }
-.page--todo { display: grid; place-items: center; }
 
-.dots {
-  position: absolute;
-  left: 50%;
-  bottom: 2px;
-  transform: translateX(-50%);
+/* -- header -------------------------------------------------- */
+
+.rail {
   display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 var(--gutter) 0 18px;
 }
+
+.rail__id {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.rec {
+  width: 10px; height: 10px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--accent) 80%, transparent);
+  align-self: center;
+  animation: breathe 2.4s ease-in-out infinite;
+}
+@keyframes breathe { 50% { opacity: 0.35; } }
+/* The lamp means live telemetry, so it goes dark when there is none. */
+.rec--dark {
+  background: var(--faint);
+  box-shadow: none;
+  animation: none;
+}
+
+.wordmark {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 19px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  white-space: nowrap;
+}
+
+.unit {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rail__reset {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex: 0 0 auto;
+}
+
+.clock {
+  font-family: var(--font-mono);
+  font-size: 22px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.dots { display: flex; flex: 0 0 auto; }
 .dot {
-  width: 14px; height: 8px;
+  width: 24px; height: 32px;
   padding: 0;
   border: 0;
   background: none;
@@ -122,131 +205,32 @@ body[data-page="macros"] { --accent: #9B7BD4; }
 }
 .dot::after {
   content: "";
-  width: 4px; height: 4px;
+  width: 8px; height: 8px;
   border-radius: 50%;
-  background: var(--silk-dim);
+  background: var(--edge);
 }
-.dot[aria-current="true"]::after { background: var(--accent); }
-
-/* -- shell -------------------------------------------------- */
-
-.case {
-  display: grid;
-  grid-template-rows: 1fr 66px 32px;
-}
-
-/* A single pen's percentage is the total, so the legend would only
-   restate the hero readout. Drop it and let the paper have the space. */
-.case--solo {
-  grid-template-rows: 1fr 32px;
-}
-.case--solo .pens { display: none; 
-  background: linear-gradient(180deg, #191D23 0%, var(--case) 34%, #101216 100%);
-}
-
-/* -- silkscreen type ---------------------------------------- */
-
-.silk {
-  font-family: var(--font-silk);
-  font-size: 8.5px;
-  font-weight: 500;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--silk);
-}
-.silk--dim { color: var(--silk-dim); }
-.silk b { font-weight: 700; color: var(--silk-bright); }
-
-/* -- title rail --------------------------------------------- */
-
-.rail {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 0 var(--gutter);
-  background: linear-gradient(180deg, #232830, #1A1E24);
-  border-bottom: 1px solid var(--panel-edge);
-  box-shadow: inset 0 1px 0 var(--panel-hi);
-}
-
-.rail__id {
-  display: flex;
-  align-items: baseline;
-  gap: 9px;
-  flex: 1 1 auto;
-  min-width: 0;
-}
-
-/* The page's accent runs along the title rail's lower edge. */
-header.rail {
-  border-bottom-color: color-mix(in srgb, var(--accent) 55%, var(--panel-edge));
-}
-
-.rec {
-  width: 7px; height: 7px;
-  border-radius: 50%;
+.dot[aria-current="true"]::after {
   background: var(--accent);
-  box-shadow: 0 0 7px color-mix(in srgb, var(--accent) 85%, transparent);
-  align-self: center;
-  animation: blink 1.6s steps(1, end) infinite;
-}
-@keyframes blink { 0%, 62% { opacity: 1; } 63%, 100% { opacity: 0.22; } }
-/* The lamp means live telemetry, so it goes dark when there is none. */
-.rec--dark {
-  background: var(--silk-dim);
-  box-shadow: none;
-  animation: none;
+  box-shadow: 0 0 8px color-mix(in srgb, var(--accent) 70%, transparent);
 }
 
-.wordmark {
-  margin: 0;
-  font-size: 14px;
-  font-weight: 600;
-  font-variation-settings: "wdth" 118;
-  color: var(--silk-bright);
-}
-
-.unit { transform: translateY(-1px); }
-
-.rail__reset {
-  display: flex;
-  align-items: baseline;
-  gap: 9px;
-  flex: 0 0 auto;
-}
-
-.clock {
-  font-family: var(--font-silk);
-  font-size: 13px;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  font-variant-numeric: tabular-nums;
-  color: var(--silk-bright);
-}
-
-.rail__ctl {
-  display: flex;
-  gap: 6px;
-  flex: 0 0 auto;
-  margin-left: 4px;
-}
+.rail__ctl { display: flex; gap: 4px; flex: 0 0 auto; }
 
 .ctl {
-  width: 22px; height: 18px;
+  width: 32px; height: 30px;
   display: grid;
   place-items: center;
   padding: 0;
-  border: 1px solid #0F1216;
-  border-radius: 3px;
-  background: linear-gradient(180deg, #2A3038, #21262D);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07);
-  color: var(--silk);
+  border: 1px solid var(--edge);
+  border-radius: 9px;
+  background: var(--card);
+  color: var(--muted);
   cursor: pointer;
   transition: background 120ms ease, color 120ms ease;
 }
-.ctl svg { width: 10px; height: 10px; stroke: currentColor; stroke-width: 1.3; fill: none; stroke-linecap: round; }
-.ctl:hover { background: linear-gradient(180deg, #333A44, #272D35); color: var(--silk-bright); }
-.ctl--close:hover { background: linear-gradient(180deg, #A8422F, #8E3626); color: var(--paper); border-color: #6E2A1D; }
+.ctl svg { width: 12px; height: 12px; stroke: currentColor; stroke-width: 1.4; fill: none; stroke-linecap: round; }
+.ctl:hover { background: var(--card-up); color: var(--text); }
+.ctl--close:hover { background: #3A1414; border-color: #5C1F1F; color: var(--limit); }
 /* The display the window aligns to is not connected. */
 .ctl.is-miss { animation: ctl-miss 320ms ease-out; }
 @keyframes ctl-miss {
@@ -255,15 +239,24 @@ header.rail {
   75% { transform: translateX(2px); }
 }
 @media (prefers-reduced-motion: reduce) {
-  .ctl.is-miss { animation: none; color: #A8422F; }
+  .ctl.is-miss { animation: none; color: var(--limit); }
 }
 
-/* -- deck: recorder + carriage ------------------------------ */
+/* -- usage page ---------------------------------------------- */
+
+.case {
+  display: grid;
+  grid-template-rows: 1fr 36px;
+  padding-bottom: 0;
+}
+
+/* A single model's percentage is the total, so the legend would only
+   restate the hero readout. Drop it and let the chart have the space. */
+.case--solo .pens { display: none; }
 
 .deck {
   display: flex;
-  gap: 12px;
-  padding: 12px var(--gutter) 8px;
+  gap: 10px;
   min-height: 0;
 }
 
@@ -271,23 +264,20 @@ header.rail {
   flex: 1 1 auto;
   min-width: 0;
   display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px 12px 12px;
 }
 
 .recorder__paper {
   position: relative;
   flex: 1 1 auto;
-  border-radius: 2px;
-  background: var(--paper);
-  border: 1px solid #0A0C0F;
-  box-shadow:
-    inset 0 2px 7px rgba(10, 12, 15, 0.45),
-    0 0 0 1px rgba(255, 255, 255, 0.04);
-  overflow: hidden;
+  min-height: 0;
 }
 
-.chart { display: block; width: 100%; height: 100%; }
+.chart { display: block; width: 100%; height: 100%; overflow: visible; }
 
-/* pen carriage riding the right rail of the paper */
+/* the pen riding at now */
 .pen {
   position: absolute;
   left: 0;
@@ -299,10 +289,10 @@ header.rail {
 }
 .pen__nib {
   display: block;
-  width: 8px; height: 8px;
-  background: var(--ink-graphite);
-  transform: rotate(45deg);
-  box-shadow: 0 0 0 2px var(--paper);
+  width: 12px; height: 12px;
+  border-radius: 50%;
+  background: var(--text);
+  box-shadow: 0 0 0 3px var(--card), 0 0 14px rgba(255, 255, 255, 0.55);
 }
 
 .paper__empty {
@@ -313,110 +303,106 @@ header.rail {
   place-items: center;
   padding: 0 32px;
   text-align: center;
-  font-family: var(--font-silk);
-  font-size: 9px;
+  font-size: 18px;
   font-weight: 500;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: rgba(35, 38, 43, 0.55);
+  color: var(--muted);
 }
 /* author display beats the UA [hidden] rule, so restate it */
 .paper__empty[hidden] { display: none; }
 
-/* -- carriage readouts -------------------------------------- */
+/* -- readouts ------------------------------------------------- */
 
 .carriage {
-  flex: 0 0 168px;
+  flex: 0 0 200px;
   display: flex;
   flex-direction: column;
-  padding: 11px 13px 9px;
-  border-radius: 2px;
-  background: linear-gradient(180deg, #232830, var(--panel));
-  border: 1px solid var(--panel-edge);
-  box-shadow: inset 0 1px 0 var(--panel-hi);
+  gap: 10px;
 }
 
-.readout { display: flex; flex-direction: column; }
-.readout + .readout {
-  margin-top: auto;
-  padding-top: 11px;
-  border-top: 1px solid rgba(255, 255, 255, 0.055);
+.readout {
+  flex: 1 1 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+  padding: 0 16px;
 }
+.readout--hero { flex-grow: 1.35; }
 
 .readout__value {
-  font-size: 30px;
-  font-weight: 700;
-  line-height: 0.9;
-  letter-spacing: -0.01em;
-  font-variation-settings: "wdth" 125;
-  font-variant-numeric: tabular-nums;
-  color: var(--silk-bright);
-}
-.readout--hero .readout__value { font-size: 62px; letter-spacing: -0.028em; }
-.readout__value--sm { font-size: 27px; }
-.readout__unit {
-  font-size: 0.52em;
+  font-family: var(--font-mono);
+  font-size: 36px;
   font-weight: 600;
-  color: var(--silk);
-  margin-left: 1px;
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
-.readout__label { margin-top: 7px; }
+.readout--hero .readout__value { font-size: 52px; }
+.readout__unit {
+  margin-left: 2px;
+  font-size: 0.5em;
+  font-weight: 500;
+  letter-spacing: 0;
+  color: var(--muted);
+}
 
-/* -- pen channel legend ------------------------------------- */
+/* -- model legend --------------------------------------------- */
 
 .pens {
   display: flex;
   gap: 8px;
-  padding: 0 var(--gutter) 10px;
 }
 
 .pen-ch {
-  flex: 1 1 0;
-  display: grid;
-  grid-template-columns: 10px 1fr auto;
-  grid-template-rows: auto auto;
+  flex: 1 1 auto;
+  min-width: 0;
+  position: relative;
+  display: flex;
   align-items: center;
   gap: 9px;
-  padding: 10px 11px;
-  border-radius: 2px;
-  border: 1px solid var(--panel-edge);
-  background: linear-gradient(180deg, #232830, var(--panel));
-  box-shadow: inset 0 1px 0 var(--panel-hi);
+  height: 42px;
+  padding: 0 12px;
+  overflow: hidden;
+  border-radius: 11px;
+  border: 1px solid var(--edge);
+  background: var(--card-up);
+  color: var(--text);
   font: inherit;
-  text-align: left;
   cursor: pointer;
-  transition: background 130ms ease, opacity 130ms ease;
+  transition: opacity 130ms ease;
 }
-.pen-ch:hover { background: linear-gradient(180deg, #2A3038, #232830); }
 .pen-ch[aria-pressed="false"] { opacity: 0.4; }
 
 .pen-ch__nib {
   width: 10px; height: 10px;
-  border-radius: 1px;
+  flex: 0 0 auto;
+  border-radius: 50%;
   background: var(--nib);
-  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(233, 232, 220, 0.22);
+  box-shadow: 0 0 8px var(--nib);
 }
 .pen-ch__name {
-  font-size: 12.5px;
-  font-weight: 600;
-  font-variation-settings: "wdth" 112;
-  color: var(--silk-bright);
-}
-.pen-ch__stat { font-size: 9px; justify-self: end; }
-.pen-ch__stat b { font-size: 11px; letter-spacing: 0.01em; }
-
-.pen-ch__bar {
-  grid-column: 1 / -1;
-  height: 4px;
-  border-radius: 1px;
-  background: rgba(0, 0, 0, 0.32);
-  box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.4);
+  min-width: 0;
   overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 17px;
+  font-weight: 500;
+}
+.pen-ch__stat { margin-left: auto; }
+.pen-ch__stat b { font-size: 17px; }
+
+/* the model's share, as a hairline along the chip's foot */
+.pen-ch__bar {
+  position: absolute;
+  inset: auto 12px 0;
+  height: 3px;
 }
 .pen-ch__bar i {
   display: block;
   height: 100%;
   width: var(--fill);
+  border-radius: 3px 3px 0 0;
   background: var(--nib);
   transform-origin: left center;
   animation: wipe 800ms cubic-bezier(0.22, 0.85, 0.3, 1) both;
@@ -424,86 +410,60 @@ header.rail {
 }
 @keyframes wipe { from { transform: scaleX(0); } to { transform: scaleX(1); } }
 
-/* -- footer rail -------------------------------------------- */
+/* -- footer --------------------------------------------------- */
 
-.rail--foot {
+.foot {
+  display: flex;
+  align-items: center;
   gap: 10px;
-  background: linear-gradient(180deg, #1A1E24, #101317);
-  border-bottom: none;
-  border-top: 1px solid var(--panel-edge);
+  padding: 0 6px;
 }
 
-.segbar { display: flex; gap: 2px; }
+.segbar { display: flex; gap: 3px; }
 .segbar i {
-  width: 9px; height: 9px;
-  border-radius: 1px;
-  background: rgba(233, 232, 220, 0.09);
-  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.3);
+  width: 12px; height: 12px;
+  border-radius: 3px;
+  background: var(--card-up);
+  box-shadow: inset 0 0 0 1px var(--edge);
 }
-.segbar i.on  { background: var(--silk-bright); box-shadow: none; }
-.segbar i.hot { background: var(--grid); box-shadow: none; }
+.segbar i.on  { background: var(--text); box-shadow: none; }
+.segbar i.hot { background: var(--limit); box-shadow: 0 0 6px var(--limit); }
 
-.foot__pct { font-size: 9px; }
-.foot__pct b { font-size: 11px; }
-.rail__rule { width: 1px; height: 12px; background: rgba(255, 255, 255, 0.09); }
+.foot__pct b { font-size: 17px; }
+.foot__state { margin-left: 6px; }
 .foot__right { margin-left: auto; }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
 
-/* -- source indicator ---------------------------------------------- */
+/* -- system page ---------------------------------------------- */
 
-.silk--warn { color: #D08A5E; }
-.silk--live { color: #7FB08A; }
-
-
-
-/* -- system page ------------------------------------------------ */
-
-/* Sized for a 5-inch panel, after the original html-monitor: every
-   readout as large as its column allows, rows edge to edge. */
+/* Every readout as large as its column allows: a 5-inch panel. */
 .sys {
   display: flex;
   flex-direction: column;
+  gap: 10px;
 }
 
 .sys-row {
   flex: 1 1 0;
   min-height: 0;
+  position: relative;
+  overflow: hidden;
   display: grid;
-  grid-template-columns: 56px 210px 218px 1fr;
-  gap: 16px;
-  padding: 12px 20px 12px 0;
+  grid-template-columns: 196px 232px 1fr;
+  gap: 20px;
+  padding: 14px 0 14px 20px;
 }
-.sys-row + .sys-row { border-top: 1px solid rgba(255, 255, 255, 0.07); }
-.sys-row:last-child { padding-bottom: 16px; }  /* clears the page dots */
 .sys-row[hidden] { display: none; }
 
-/* Each row's pen colour runs down its spine, as on the usage legend. */
-.sys-spine {
-  margin: -12px 0;
-  writing-mode: vertical-rl;
-  transform: rotate(180deg);
-  display: grid;
-  place-items: center;
-  font-size: 36px;
-  font-weight: 700;
-  font-variation-settings: "wdth" 125;
-  letter-spacing: 0.2em;
-  color: var(--nib);
-  border-right: 3px solid var(--nib);
-  background: linear-gradient(0deg, color-mix(in srgb, var(--nib) 14%, transparent), transparent 70%);
-}
-.sys-row:last-child .sys-spine { margin-bottom: -16px; }
-
-.sys-label {
-  font-family: var(--font-silk);
-  font-size: 15px;
-  font-weight: 600;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  color: var(--silk);
+.lamp {
+  width: 10px; height: 10px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: var(--nib);
+  box-shadow: 0 0 10px var(--nib);
 }
 
 .sys-hero {
@@ -512,113 +472,115 @@ header.rail {
   justify-content: center;
   min-width: 0;
 }
+.sys-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--muted);
+}
 .sys-num {
   display: flex;
-  align-items: flex-start;
-  margin: 6px 0 4px;
-  font-size: 112px;
-  font-weight: 700;
-  line-height: 0.82;
-  letter-spacing: -0.02em;
-  font-variation-settings: "wdth" 85;
+  align-items: baseline;
+  margin: 2px 0 0;
+  font-family: var(--font-mono);
+  font-size: 96px;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: -0.05em;
   font-variant-numeric: tabular-nums;
-  color: var(--silk-bright);
 }
 .sys-unit {
-  margin: 6px 0 0 3px;
-  font-size: 36px;
-  font-weight: 600;
+  margin-left: 4px;
+  font-size: 34px;
+  font-weight: 500;
+  letter-spacing: 0;
   color: var(--nib);
 }
 .sys-sub {
-  font-family: var(--font-silk);
-  font-size: 20px;
+  font-family: var(--font-mono);
+  font-size: 19px;
   font-weight: 500;
-  font-variation-settings: "wdth" 75;
   white-space: nowrap;
-  color: var(--silk-bright);
+  color: var(--muted);
 }
 
 .sys-meters {
   display: flex;
   flex-direction: column;
   justify-content: center;
-  gap: 14px;
+  gap: 12px;
   min-width: 0;
 }
 .sys-temp {
-  font-size: 34px;
-  font-weight: 700;
+  font-family: var(--font-mono);
+  font-size: 38px;
+  font-weight: 600;
   line-height: 1;
-  font-variation-settings: "wdth" 110;
+  letter-spacing: -0.03em;
   font-variant-numeric: tabular-nums;
-  color: var(--silk-bright);
 }
 .sys-meter {
   display: grid;
   grid-template-columns: auto 1fr;
   align-items: baseline;
-  gap: 6px 8px;
+  gap: 6px 10px;
+}
+.sys-label {
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--muted);
 }
 .sys-val {
   justify-self: end;
-  font-family: var(--font-silk);
-  font-size: 20px;
-  font-weight: 700;
-  font-variation-settings: "wdth" 75;
+  font-family: var(--font-mono);
+  font-size: 19px;
+  font-weight: 600;
   white-space: nowrap;
-  color: var(--silk-bright);
 }
 .sys-track {
   grid-column: 1 / -1;
-  height: 12px;
-  border-radius: 2px;
-  background: rgba(0, 0, 0, 0.32);
-  box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.4);
+  height: 8px;
+  border-radius: 4px;
+  background: var(--card-up);
   overflow: hidden;
 }
 .sys-track i {
   display: block;
   height: 100%;
   width: var(--fill, 0%);
+  border-radius: 4px;
   background: var(--nib);
+  box-shadow: 0 0 8px var(--nib);
   transition: width 600ms cubic-bezier(0.22, 0.85, 0.3, 1);
 }
 
+/* The graph runs off the card's right and bottom edges. */
 .sys-graph {
+  position: relative;
   min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
+  margin: -14px 0 -14px;
 }
+/* Out of flow, so the canvas's pixel size never feeds back into the row. */
+.sys-graph canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
 .sys-name {
-  font-family: var(--font-silk);
-  font-size: 13px;
-  font-variation-settings: "wdth" 75;
-  letter-spacing: 0.04em;
-  text-align: right;
-  white-space: nowrap;
+  position: absolute;
+  top: 14px;
+  right: 18px;
+  max-width: calc(100% - 36px);
   overflow: hidden;
   text-overflow: ellipsis;
-  color: var(--silk);
+  white-space: nowrap;
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--muted);
 }
-.sys-paper {
-  flex: 1 1 0;
-  min-height: 0;
-  border-radius: 2px;
-  background: var(--paper);
-  border: 1px solid #0A0C0F;
-  box-shadow: inset 0 2px 7px rgba(10, 12, 15, 0.45);
-  overflow: hidden;
-}
-.sys-paper canvas { display: block; width: 100%; height: 100%; }
 
-/* -- macros page ------------------------------------------------ */
+/* -- macros page ---------------------------------------------- */
 
-.macros {
-  display: flex;
-  padding: 12px var(--gutter) 16px;
-}
+.macros { display: flex; }
 
 .macro-grid {
   flex: 1 1 auto;
@@ -638,58 +600,51 @@ header.rail {
   align-items: center;
   justify-content: center;
   gap: 12px;
-  padding: 12px 8px 10px;
+  padding: 12px 8px;
   overflow: hidden;
-  border-radius: 3px;
-  border: 1px solid var(--panel-edge);
-  background: linear-gradient(180deg, #2A3038, var(--panel));
-  box-shadow: inset 0 1px 0 var(--panel-hi);
-  color: var(--silk-bright);
+  border-radius: var(--radius);
+  border: 1px solid var(--edge);
+  /* the key's colour, glowing up from below like the charts */
+  background:
+    radial-gradient(120% 70% at 50% 120%, color-mix(in srgb, var(--key) 30%, transparent), transparent 70%),
+    var(--card);
+  color: var(--text);
   font: inherit;
   cursor: pointer;
   touch-action: manipulation;
-  transition: transform 80ms ease, background 120ms ease;
-}
-/* the key's colour, as a cap along the top edge */
-.macro::before {
-  content: "";
-  position: absolute;
-  inset: 0 0 auto;
-  height: 4px;
-  background: var(--key);
+  transition: transform 80ms ease, border-color 120ms ease;
 }
 .macro:active {
-  transform: translateY(1px) scale(0.98);
-  background: linear-gradient(180deg, #333A44, #272D35);
+  transform: scale(0.97);
+  border-color: var(--key);
 }
-.macro:disabled { cursor: default; opacity: 0.7; }
+.macro:disabled { cursor: default; opacity: 0.6; }
 
 .macro__icon {
-  font-size: 46px;
+  font-size: 44px;
   line-height: 1;
   font-variant-emoji: text;
   color: var(--key);
+  text-shadow: 0 0 16px color-mix(in srgb, var(--key) 55%, transparent);
 }
 .macro__label {
   max-width: 100%;
-  font-size: 16px;
+  font-size: 17px;
   font-weight: 600;
   line-height: 1.15;
-  font-variation-settings: "wdth" 108;
   text-align: center;
   overflow-wrap: anywhere;
 }
 .macro__error {
-  font-family: var(--font-silk);
-  font-size: 10px;
-  line-height: 1.3;
+  font-size: 14px;
+  line-height: 1.25;
   text-align: center;
-  color: #D08A5E;
+  color: var(--warn);
 }
 
 .macro.is-fired { animation: macro-fired 500ms ease-out; }
 @keyframes macro-fired {
-  from { box-shadow: inset 0 0 0 2px var(--key), 0 0 16px color-mix(in srgb, var(--key) 60%, transparent); }
+  from { border-color: var(--key); box-shadow: 0 0 18px color-mix(in srgb, var(--key) 60%, transparent); }
 }
 .macro.is-miss { animation: ctl-miss 320ms ease-out; }
 
@@ -705,11 +660,11 @@ header.rail {
   text-align: center;
 }
 .macro-empty[hidden] { display: none; }
-.macro-empty__why { font-size: 18px; font-weight: 600; color: #D08A5E; }
+.macro-empty__why { font-size: 20px; font-weight: 600; color: var(--warn); }
 .macro-empty__path {
-  font-family: var(--font-silk);
-  font-size: 12px;
-  color: var(--silk);
+  font-family: var(--font-mono);
+  font-size: 15px;
+  color: var(--muted);
   overflow-wrap: anywhere;
   user-select: text;
 }

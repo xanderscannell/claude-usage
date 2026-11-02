@@ -6,7 +6,7 @@
 <title>Claude Usage</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,300..900&family=Martian+Mono:wdth,wght@75..112.5,300..700&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400..700&family=Geist+Mono:wght@400..700&display=swap" rel="stylesheet" />
 <link rel="stylesheet" href="/src/styles.css" />
 </head>
 <body data-page="usage">
@@ -20,7 +20,7 @@
 
         <span class="rec rec--dark" id="sys-rec" data-for="system" aria-hidden="true" hidden></span>
         <h1 class="wordmark" data-for="system" hidden>System</h1>
-        <span class="silk silk--dim unit" data-for="system" hidden>CPU · GPU · Memory</span>
+        <span class="silk silk--dim unit" data-for="system" hidden>CPU, GPU and memory</span>
 
         <span class="rec" data-for="macros" aria-hidden="true" hidden></span>
         <h1 class="wordmark" data-for="macros" hidden>Macros</h1>
@@ -28,7 +28,7 @@
       </div>
 
       <div class="rail__reset" data-for="usage" data-tauri-drag-region>
-        <span class="silk silk--dim" id="reset-label">Block resets in</span>
+        <span class="silk silk--dim" id="reset-label">Resets in</span>
         <span class="clock" id="reset-clock">—</span>
       </div>
 
@@ -36,6 +36,8 @@
         <span class="silk silk--dim" id="sys-date">—</span>
         <span class="clock" id="sys-clock">—</span>
       </div>
+
+      <nav class="dots" id="dots" aria-label="Pages"></nav>
 
       <div class="rail__ctl">
         <button class="ctl" type="button" data-win="align" aria-label="Align window to its display" title="Align to display">
@@ -54,54 +56,50 @@
   <div class="case page" data-page="usage" aria-label="Usage">
 
     <main class="deck">
-      <section class="recorder" aria-labelledby="recorder-title">
+      <section class="card recorder" aria-labelledby="recorder-title">
         <h2 class="sr-only" id="recorder-title">Usage across the current 5-hour block, plotted by model</h2>
         <div class="recorder__paper">
           <svg class="chart" id="chart" viewBox="0 0 640 300" role="img" aria-label="Loading usage."></svg>
           <div class="pen" id="pen" aria-hidden="true"><span class="pen__nib"></span></div>
           <p class="paper__empty" id="paper-empty" hidden>No block open</p>
         </div>
+        <div class="pens" id="pens" aria-label="Models"></div>
       </section>
 
       <aside class="carriage">
-        <div class="readout readout--hero">
-          <span class="readout__value" id="pct-value">0.0</span>
-          <span class="silk readout__label">% of 5-hour limit</span>
+        <div class="card readout readout--hero">
+          <span class="silk readout__label">Used</span>
+          <span class="readout__value"><span id="pct-value">0.0</span><span class="readout__unit">%</span></span>
+          <span class="silk silk--dim">of the 5-hour limit</span>
         </div>
 
-        <div class="readout">
-          <span class="readout__value readout__value--sm">
-            <span id="burn-value">0.0</span><span class="readout__unit">%/hr</span>
-          </span>
-          <span class="silk readout__label">of limit per hour</span>
+        <div class="card readout">
+          <span class="silk readout__label">Burn rate</span>
+          <span class="readout__value"><span id="burn-value">0.0</span><span class="readout__unit">%/hr</span></span>
         </div>
 
-        <div class="readout">
-          <span class="readout__value readout__value--sm" id="full-value">—</span>
-          <span class="silk readout__label">to limit at this rate</span>
+        <div class="card readout">
+          <span class="silk readout__label">Limit in</span>
+          <span class="readout__value" id="full-value">—</span>
         </div>
       </aside>
     </main>
 
-    <section class="pens" id="pens" aria-label="Pen channels"></section>
-
-    <footer class="rail rail--foot">
+    <footer class="foot">
       <span class="silk silk--dim" id="weekly-label">Weekly</span>
       <span class="segbar" id="segbar" aria-hidden="true"></span>
       <span class="silk foot__pct"><b id="weekly-pct">—</b>%</span>
       <span class="silk silk--dim" id="weekly-reset"></span>
-      <span class="rail__rule"></span>
-      <span class="silk" id="source-state">—</span>
+      <span class="silk foot__state" id="source-state">—</span>
       <span class="silk silk--dim foot__right" id="foot-right">—</span>
     </footer>
 
   </div>
 
   <section class="page sys" data-page="system" aria-label="System">
-    <div class="sys-row" id="cpu-row" style="--nib: var(--ui-blue)">
-      <h2 class="sys-spine">CPU</h2>
+    <div class="card sys-row" id="cpu-row" style="--nib: var(--ink-sky)">
       <div class="sys-hero">
-        <span class="sys-label">Load</span>
+        <h2 class="sys-title"><i class="lamp"></i>CPU</h2>
         <span class="sys-num"><span id="cpu-pct">--</span><span class="sys-unit">%</span></span>
         <span class="sys-sub" id="cpu-clock">-- GHz</span>
       </div>
@@ -118,14 +116,13 @@
       </div>
       <div class="sys-graph">
         <span class="sys-name" id="cpu-name">Processor</span>
-        <div class="sys-paper"><canvas id="cpu-canvas" aria-hidden="true"></canvas></div>
+        <canvas id="cpu-canvas" aria-hidden="true"></canvas>
       </div>
     </div>
 
-    <div class="sys-row" id="gpu-row" style="--nib: var(--ui-violet)" hidden>
-      <h2 class="sys-spine">GPU</h2>
+    <div class="card sys-row" id="gpu-row" style="--nib: var(--ink-violet)" hidden>
       <div class="sys-hero">
-        <span class="sys-label">Load</span>
+        <h2 class="sys-title"><i class="lamp"></i>GPU</h2>
         <span class="sys-num"><span id="gpu-pct">--</span><span class="sys-unit">%</span></span>
         <span class="sys-sub" id="gpu-clock">-- MHz</span>
       </div>
@@ -142,7 +139,7 @@
       </div>
       <div class="sys-graph">
         <span class="sys-name" id="gpu-name">Graphics</span>
-        <div class="sys-paper"><canvas id="gpu-canvas" aria-hidden="true"></canvas></div>
+        <canvas id="gpu-canvas" aria-hidden="true"></canvas>
       </div>
     </div>
   </section>
@@ -151,8 +148,6 @@
     <p class="macro-empty" id="macro-empty" hidden></p>
   </section>
   </div>
-
-  <nav class="dots" id="dots" aria-label="Pages"></nav>
 
   <script type="module" src="/src/main.js"></script>
 </body>
