@@ -144,6 +144,13 @@
     </div>
   </section>
   <section class="page macros" data-page="macros" aria-label="Macros">
+    <!-- The keys' glass. macros.js sizes the map to the keys. -->
+    <svg width="0" height="0" style="position: absolute" aria-hidden="true">
+      <filter id="glass" x="0" y="0" width="100%" height="100%" color-interpolation-filters="sRGB">
+        <feImage id="glass-map" x="0" y="0" preserveAspectRatio="none" result="map" />
+        <feDisplacementMap in="SourceGraphic" in2="map" scale="14" xChannelSelector="R" yChannelSelector="G" />
+      </filter>
+    </svg>
     <div class="macro-grid" id="macro-grid"></div>
     <p class="macro-empty" id="macro-empty" hidden></p>
   </section>

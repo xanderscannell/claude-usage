@@ -30,6 +30,58 @@ function flash(btn, cls) {
   btn.classList.add(cls);
 }
 
+/* The glass cap's lens. Near the rim, each pixel samples the screen
+   from further in along the edge normal, so the screen's light bends
+   out toward the edge the way thick glass bends it. Red and green
+   carry the x and y offset around a neutral 128. */
+function lensMap(w, h, r, rim) {
+  const c = document.createElement("canvas");
+  c.width = w;
+  c.height = h;
+  const ctx = c.getContext("2d");
+  const img = ctx.createImageData(w, h);
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      // Depth inside the rounded rectangle, and the outward normal at the nearest edge.
+      const px = x + 0.5 - w / 2;
+      const py = y + 0.5 - h / 2;
+      const qx = Math.abs(px) - (w / 2 - r);
+      const qy = Math.abs(py) - (h / 2 - r);
+      const ox = Math.max(qx, 0);
+      const oy = Math.max(qy, 0);
+      const len = Math.hypot(ox, oy);
+      const depth = r - len - Math.min(Math.max(qx, qy), 0);
+      let nx = len > 0 ? ox / len : qx > qy ? 1 : 0;
+      let ny = len > 0 ? oy / len : qx > qy ? 0 : 1;
+      nx *= Math.sign(px);
+      ny *= Math.sign(py);
+      const k = depth < rim ? (1 - Math.max(0, depth) / rim) ** 2 : 0;
+      const i = (y * w + x) * 4;
+      img.data[i] = 128 - nx * k * 127;
+      img.data[i + 1] = 128 - ny * k * 127;
+      img.data[i + 2] = 128;
+      img.data[i + 3] = 255;
+    }
+  }
+  ctx.putImageData(img, 0, 0);
+  return c.toDataURL();
+}
+
+let lensSize = "";
+function fitLens(key) {
+  const { width, height } = key.getBoundingClientRect();
+  const w = Math.round(width);
+  const h = Math.round(height);
+  const size = `${w}x${h}`;
+  if (!w || !h || size === lensSize) return;
+  lensSize = size;
+  const r = parseFloat(getComputedStyle(key).borderTopLeftRadius) || 16;
+  const map = $("glass-map");
+  map.setAttribute("width", w);
+  map.setAttribute("height", h);
+  map.setAttribute("href", lensMap(w, h, r, 14));
+}
+
 async function fire(btn, index, label) {
   try {
     await runMacro(index, label);
@@ -72,6 +124,8 @@ function render(v) {
     btn.addEventListener("click", () => fire(btn, i, b.label));
     return btn;
   }));
+  // Every key shares one grid cell size, so one map serves them all.
+  if (grid.firstChild) fitLens(grid.firstChild);
 }
 
 async function refresh() {
