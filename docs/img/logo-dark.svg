@@ -19,9 +19,9 @@
     <path d="M20 56h88M20 76h88M20 96h88" stroke="#FFFFFF" stroke-opacity="0.07" stroke-width="1.5" />
     <path d="M20 104 C44 98 60 86 74 70 S90 50 96 46 L96 104 Z" fill="url(#wash-a)" />
     <path d="M20 104 C46 101 70 94 96 86 L96 104 Z" fill="url(#wash-b)" />
-    <path d="M20 104 C46 101 70 94 96 86" fill="none" stroke="#2DD4BF" stroke-width="2.5" filter="url(#glow)" />
-    <path d="M20 36h88" stroke="#F87171" stroke-width="3.5" stroke-linecap="round" />
-    <path d="M20 104 C44 98 60 86 74 70 S90 50 96 46" fill="none" stroke="#F2F2F3" stroke-width="4.5" stroke-linecap="round" filter="url(#glow)" />
-    <circle cx="96" cy="46" r="6.5" fill="#F2F2F3" stroke="#0E0E10" stroke-width="3" />
+    <path d="M20 104 C46 101 70 94 96 86" fill="none" stroke="#2DD4BF" stroke-width="4" filter="url(#glow)" />
+    <path d="M20 36h88" stroke="#F87171" stroke-width="7" stroke-linecap="round" />
+    <path d="M20 104 C44 98 60 86 74 70 S90 50 96 46" fill="none" stroke="#F2F2F3" stroke-width="7.5" stroke-linecap="round" filter="url(#glow)" />
+    <circle cx="96" cy="46" r="8.5" fill="#F2F2F3" stroke="#0E0E10" stroke-width="3.5" />
   </g>
 </svg>
