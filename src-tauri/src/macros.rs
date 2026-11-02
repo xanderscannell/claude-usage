@@ -18,7 +18,12 @@ const STARTER: &str = r##"{
     { "label": "Snip", "icon": "✂", "keys": "win+shift+s", "color": "#5B8FDD" },
     { "label": "Task Manager", "icon": "▦", "keys": "ctrl+shift+esc" },
     { "label": "Claude", "icon": "✳", "open": "https://claude.ai", "color": "#C2513A" },
-    { "label": "Copy date", "icon": "▤", "run": "Get-Date -Format 'yyyy-MM-dd' | Set-Clipboard", "color": "#9B7BD4" }
+    { "label": "Copy date", "icon": "▤", "run": "Get-Date -Format 'yyyy-MM-dd' | Set-Clipboard", "color": "#9B7BD4" },
+    { "label": "Desktop", "icon": "▭", "keys": "win+d" },
+    { "label": "Explorer", "icon": "◫", "keys": "win+e", "color": "#D0A85E" },
+    { "label": "Clipboard", "icon": "▣", "keys": "win+v" },
+    { "label": "Calculator", "icon": "±", "open": "calc.exe" },
+    { "label": "Settings", "icon": "⚙", "keys": "win+i" }
   ]
 }
 "##;
@@ -311,7 +316,7 @@ mod tests {
         let dir = std::env::temp_dir().join(format!("macros-test-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         let v = view(&dir);
-        assert!(v.error.is_none() && v.buttons.len() == 10);
+        assert!(v.error.is_none() && v.buttons.len() == 15);
         // a stale label must not run whatever now sits at that position
         assert!(run(&dir, 0, "Not the label").unwrap_err().contains("changed"));
         std::fs::write(path(&dir), "{ not json").unwrap();

@@ -113,6 +113,8 @@ export function mockMacros() {
       b("Volume −", "−"), b("Volume +", "+"), b("Mute", "×"),
       b("Snip", "✂", "#5B8FDD"), b("Task Manager", "▦"),
       b("Claude", "✳", "#C2513A"), b("Copy date", "▤", "#9B7BD4"),
+      b("Desktop", "▭"), b("Explorer", "◫", "#D0A85E"), b("Clipboard", "▣"),
+      b("Calculator", "±"), b("Settings", "⚙"),
     ],
   };
 }
