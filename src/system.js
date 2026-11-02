@@ -4,9 +4,6 @@
 import { mockStats } from "./mock.js";
 
 const HISTORY = 64;
-// Canvas cannot read CSS variables, so these restate --ink-sky and --ink-violet.
-const INK = { cpu: "#60A5FA", gpu: "#C084FC" };
-const GRID = "rgba(255, 255, 255, 0.07)";
 
 const $ = (id) => document.getElementById(id);
 const cpuData = new Array(HISTORY).fill(0);
@@ -28,7 +25,11 @@ function fitCanvas(c) {
   c.height = Math.max(1, Math.round(rect.height * dpr));
 }
 
-function drawSparkline(canvas, data, color) {
+/* Colours come from the theme on each draw, so a theme switch shows on the next sample. */
+function drawSparkline(canvas, data) {
+  const css = getComputedStyle(canvas);
+  const color = css.getPropertyValue("--nib").trim();
+  const glow = Number.parseFloat(css.getPropertyValue("--glow")) || 1;
   fitCanvas(canvas);
   const ctx = canvas.getContext("2d");
   const W = canvas.width;
@@ -42,7 +43,7 @@ function drawSparkline(canvas, data, color) {
   const top = 44 * dpr;
   const yOf = (v) => H - (Math.max(0, Math.min(100, v)) / 100) * (H - top);
 
-  ctx.strokeStyle = GRID;
+  ctx.strokeStyle = css.getPropertyValue("--rule").trim();
   ctx.lineWidth = dpr;
   for (const q of [25, 50, 75]) {
     const y = Math.round(yOf(q)) + 0.5;
@@ -70,7 +71,7 @@ function drawSparkline(canvas, data, color) {
   ctx.lineWidth = 2.5 * dpr;
   ctx.lineJoin = "round";
   ctx.shadowColor = color;
-  ctx.shadowBlur = 10 * dpr;
+  ctx.shadowBlur = 10 * glow * dpr;
   ctx.stroke();
   ctx.shadowBlur = 0;
 }
@@ -89,7 +90,7 @@ function render(s) {
   bar("bar-ram", pct(s.memUsed, s.memTotal));
   $("cpu-swap").textContent = s.swapTotal > 0 ? memPair(s.swapUsed, s.swapTotal) : "—";
   bar("bar-swap", pct(s.swapUsed, s.swapTotal));
-  drawSparkline($("cpu-canvas"), cpuData, INK.cpu);
+  drawSparkline($("cpu-canvas"), cpuData);
 
   const g = s.gpu;
   $("gpu-row").hidden = !g;
@@ -104,7 +105,7 @@ function render(s) {
     bar("bar-vram", pct(g.memUsed, g.memTotal));
     $("gpu-fan").textContent = `${g.fan}%`;
     bar("bar-fan", g.fan);
-    drawSparkline($("gpu-canvas"), gpuData, INK.gpu);
+    drawSparkline($("gpu-canvas"), gpuData);
   }
 
   // The lamp means samples are arriving; it goes dark if they stop.

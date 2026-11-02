@@ -69,13 +69,14 @@ function lensMap(w, h, r, rim) {
 
 let lensSize = "";
 function fitLens(key) {
-  const { width, height } = key.getBoundingClientRect();
-  const w = Math.round(width);
-  const h = Math.round(height);
+  // The cap sits inside the key's border, so the map matches the padding box.
+  const w = key.clientWidth;
+  const h = key.clientHeight;
   const size = `${w}x${h}`;
   if (!w || !h || size === lensSize) return;
   lensSize = size;
-  const r = parseFloat(getComputedStyle(key).borderTopLeftRadius) || 16;
+  const css = getComputedStyle(key);
+  const r = (parseFloat(css.borderTopLeftRadius) || 16) - (parseFloat(css.borderTopWidth) || 0);
   const map = $("glass-map");
   map.setAttribute("width", w);
   map.setAttribute("height", h);

@@ -148,7 +148,7 @@ export function drawChart({ svg, paper, penEl, snap, hidden, reduced }) {
       ink.append(el("polyline", {
         points: [`${x(0).toFixed(1)},${y(0)}`, ...up].join(" "),
         fill: "none", stroke: ch.ink, "stroke-width": 2, "stroke-linejoin": "round",
-        filter: `drop-shadow(0 0 5px ${ch.ink})`,
+        filter: `drop-shadow(0 0 calc(5px * var(--glow)) ${ch.ink})`,
       }));
     }
     for (let i = 0; i < filled; i++) base[i] = top[i];

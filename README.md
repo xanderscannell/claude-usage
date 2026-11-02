@@ -115,7 +115,9 @@ right one. The rules that carry information:
 Every page shares one look, after ponytail's board: black ground, quiet cards, a
 coloured dot naming each series, numbers set large. The panel is a 5-inch display
 read from a few feet away, so no text is smaller than 14px. Type is Geist for
-labels and Geist Mono for numbers. One motion moment on load;
+labels and Geist Mono for numbers. The theme button in the header cycles dark,
+light, and system (follows Windows); light mode uses deeper shades of each colour
+so lines and icons stay readable on white. One motion moment on load;
 `prefers-reduced-motion` turns it all off.
 
 ## Layout

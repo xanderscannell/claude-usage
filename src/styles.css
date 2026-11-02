@@ -6,14 +6,21 @@
 
    Nothing is smaller than 14px. Colour rule: red belongs to the
    limit and is never a model.
+
+   Dark is the default; light keeps the same layout. Light inks are
+   deeper shades of the same hues, since a pale amber line on white
+   is not readable from across a desk. Inks stay 6-digit hex: the
+   canvas graphs append an alpha byte to them.
    ------------------------------------------------------------- */
 
 :root {
+  color-scheme: dark;
   --ground:    #000000;
   --card:      #0E0E10;
   --card-up:   #17171A;
   --edge:      #222226;
   --rule:      rgba(255, 255, 255, 0.07);
+  --rim:       rgba(255, 255, 255, 0.035);
 
   --text:      #F2F2F3;
   --muted:     #A0A0A8;
@@ -29,12 +36,69 @@
   --ink-amber:  #FBBF24;
   --ink-violet: #C084FC;
   --ink-sky:    #60A5FA;
+  --ink-orange: #FB923C;
+
+  /* how far glows reach: halos read as light on black, as smudges on white */
+  --glow: 1;
+
+  /* the macro keys' glass */
+  --key-body:   #08080A;
+  --key-edge:   #000000;
+  --key-drop:   0 6px 14px rgba(0, 0, 0, 0.6);
+  --sheen:      rgba(255, 255, 255, 0.2);
+  --sheen-low:  rgba(255, 255, 255, 0.05);
+  --rim-top:    rgba(255, 255, 255, 0.5);
+  --rim-low:    rgba(255, 255, 255, 0.16);
+  --rim-side:   rgba(255, 255, 255, 0.1);
+  --key-shade:  rgba(0, 0, 0, 0.22);
+  --label-lift: 0 1px 3px rgba(0, 0, 0, 0.8);
+  /* key colours come from macros.json and are picked for a dark panel; light mode deepens them */
+  --key-deepen: 0%;
 
   --font-sans: "Geist", "Segoe UI", system-ui, sans-serif;
   --font-mono: "Geist Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
 
   --gutter: 12px;
   --radius: 16px;
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+  --ground:    #F5F5F3;
+  --card:      #FFFFFF;
+  --card-up:   #F2F1ED;
+  --edge:      #E2E0DA;
+  --rule:      rgba(29, 28, 26, 0.08);
+  --rim:       rgba(255, 255, 255, 0);
+
+  --text:      #1D1C1A;
+  --muted:     #5F5D57;
+  --faint:     #7A7871;
+
+  --limit:     #DC2626;
+  --warn:      #A15C00;
+  --live:      #2F7D3B;
+
+  --ink-blue:   #5B5BD6;
+  --ink-teal:   #0F8F82;
+  --ink-amber:  #C27C0E;
+  --ink-violet: #9B4DDB;
+  --ink-sky:    #2B7BD8;
+  --ink-orange: #E0661B;
+
+  --glow: 0.45;
+
+  --key-body:   #E7E6E1;
+  --key-edge:   #D6D4CD;
+  --key-drop:   0 1px 2px rgba(25, 25, 15, 0.08), 0 6px 14px rgba(25, 25, 15, 0.08);
+  --sheen:      rgba(255, 255, 255, 0.85);
+  --sheen-low:  rgba(255, 255, 255, 0.25);
+  --rim-top:    rgba(255, 255, 255, 1);
+  --rim-low:    rgba(29, 28, 26, 0.1);
+  --rim-side:   rgba(29, 28, 26, 0.06);
+  --key-shade:  rgba(29, 28, 26, 0.05);
+  --label-lift: 0 1px 0 rgba(255, 255, 255, 0.9);
+  --key-deepen: 30%;
 }
 
 * { box-sizing: border-box; }
@@ -68,7 +132,7 @@ html, body {
   border-radius: var(--radius);
   background: var(--card);
   border: 1px solid var(--edge);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.035);
+  box-shadow: inset 0 1px 0 var(--rim);
 }
 
 /* -- text ---------------------------------------------------- */
@@ -102,7 +166,7 @@ body {
   grid-template-columns: minmax(0, 1fr);
   transition: --accent 400ms ease;
 }
-body[data-page="usage"]  { --accent: #FB923C; }
+body[data-page="usage"]  { --accent: var(--ink-orange); }
 body[data-page="system"] { --accent: var(--ink-sky); }
 body[data-page="macros"] { --accent: var(--ink-violet); }
 
@@ -134,7 +198,7 @@ body[data-page="macros"] { --accent: var(--ink-violet); }
 .rail {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   padding: 0 var(--gutter) 0 18px;
 }
 
@@ -151,7 +215,7 @@ body[data-page="macros"] { --accent: var(--ink-violet); }
   flex: 0 0 auto;
   border-radius: 50%;
   background: var(--accent);
-  box-shadow: 0 0 10px color-mix(in srgb, var(--accent) 80%, transparent);
+  box-shadow: 0 0 calc(10px * var(--glow)) color-mix(in srgb, var(--accent) 80%, transparent);
   align-self: center;
   animation: breathe 2.4s ease-in-out infinite;
 }
@@ -166,7 +230,7 @@ body[data-page="macros"] { --accent: var(--ink-violet); }
 .wordmark {
   margin: 0;
   font-family: var(--font-mono);
-  font-size: 19px;
+  font-size: 18px;
   font-weight: 600;
   letter-spacing: -0.02em;
   white-space: nowrap;
@@ -195,7 +259,7 @@ body[data-page="macros"] { --accent: var(--ink-violet); }
 
 .dots { display: flex; flex: 0 0 auto; }
 .dot {
-  width: 24px; height: 32px;
+  width: 18px; height: 32px;
   padding: 0;
   border: 0;
   background: none;
@@ -211,10 +275,10 @@ body[data-page="macros"] { --accent: var(--ink-violet); }
 }
 .dot[aria-current="true"]::after {
   background: var(--accent);
-  box-shadow: 0 0 8px color-mix(in srgb, var(--accent) 70%, transparent);
+  box-shadow: 0 0 calc(8px * var(--glow)) color-mix(in srgb, var(--accent) 70%, transparent);
 }
 
-.rail__ctl { display: flex; gap: 4px; flex: 0 0 auto; }
+.rail__ctl { display: flex; gap: 3px; flex: 0 0 auto; }
 
 .ctl {
   width: 32px; height: 30px;
@@ -230,7 +294,15 @@ body[data-page="macros"] { --accent: var(--ink-violet); }
 }
 .ctl svg { width: 12px; height: 12px; stroke: currentColor; stroke-width: 1.4; fill: none; stroke-linecap: round; }
 .ctl:hover { background: var(--card-up); color: var(--text); }
-.ctl--close:hover { background: #3A1414; border-color: #5C1F1F; color: var(--limit); }
+.ctl--theme svg { display: none; width: 16px; height: 16px; stroke-width: 1.9; stroke-linejoin: round; }
+.ctl--theme[data-choice="dark"] .i-dark,
+.ctl--theme[data-choice="light"] .i-light,
+.ctl--theme[data-choice="system"] .i-system { display: block; }
+.ctl--close:hover {
+  background: color-mix(in srgb, var(--limit) 16%, var(--card));
+  border-color: color-mix(in srgb, var(--limit) 35%, var(--card));
+  color: var(--limit);
+}
 /* The display the window aligns to is not connected. */
 .ctl.is-miss { animation: ctl-miss 320ms ease-out; }
 @keyframes ctl-miss {
@@ -292,7 +364,7 @@ body[data-page="macros"] { --accent: var(--ink-violet); }
   width: 12px; height: 12px;
   border-radius: 50%;
   background: var(--text);
-  box-shadow: 0 0 0 3px var(--card), 0 0 14px rgba(255, 255, 255, 0.55);
+  box-shadow: 0 0 0 3px var(--card), 0 0 calc(14px * var(--glow)) color-mix(in srgb, var(--text) 55%, transparent);
 }
 
 .paper__empty {
@@ -379,7 +451,7 @@ body[data-page="macros"] { --accent: var(--ink-violet); }
   flex: 0 0 auto;
   border-radius: 50%;
   background: var(--nib);
-  box-shadow: 0 0 8px var(--nib);
+  box-shadow: 0 0 calc(8px * var(--glow)) var(--nib);
 }
 .pen-ch__name {
   min-width: 0;
@@ -427,7 +499,7 @@ body[data-page="macros"] { --accent: var(--ink-violet); }
   box-shadow: inset 0 0 0 1px var(--edge);
 }
 .segbar i.on  { background: var(--text); box-shadow: none; }
-.segbar i.hot { background: var(--limit); box-shadow: 0 0 6px var(--limit); }
+.segbar i.hot { background: var(--limit); box-shadow: 0 0 calc(6px * var(--glow)) var(--limit); }
 
 .foot__pct b { font-size: 17px; }
 .foot__state { margin-left: 6px; }
@@ -463,7 +535,7 @@ body[data-page="macros"] { --accent: var(--ink-violet); }
   flex: 0 0 auto;
   border-radius: 50%;
   background: var(--nib);
-  box-shadow: 0 0 10px var(--nib);
+  box-shadow: 0 0 calc(10px * var(--glow)) var(--nib);
 }
 
 .sys-hero {
@@ -553,7 +625,7 @@ body[data-page="macros"] { --accent: var(--ink-violet); }
   width: var(--fill, 0%);
   border-radius: 4px;
   background: var(--nib);
-  box-shadow: 0 0 8px var(--nib);
+  box-shadow: 0 0 calc(8px * var(--glow)) var(--nib);
   transition: width 600ms cubic-bezier(0.22, 0.85, 0.3, 1);
 }
 
@@ -608,9 +680,9 @@ body[data-page="macros"] { --accent: var(--ink-violet); }
   padding: 12px 6px;
   overflow: hidden;
   border-radius: var(--radius);
-  border: 1px solid #000;
-  background: #08080A;
-  box-shadow: 0 0 0 1px var(--edge), 0 6px 14px rgba(0, 0, 0, 0.6);
+  border: 1px solid var(--key-edge);
+  background: var(--key-body);
+  box-shadow: 0 0 0 1px var(--edge), var(--key-drop);
   color: var(--text);
   font: inherit;
   cursor: pointer;
@@ -639,14 +711,14 @@ body[data-page="macros"] { --accent: var(--ink-violet); }
   pointer-events: none;
   background:
     /* the dome's reflection: bright at the crown, cut off sharply where the curve turns away */
-    radial-gradient(150% 62% at 50% -12%, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.05) 60%, transparent 61%),
-    linear-gradient(180deg, transparent 55%, rgba(0, 0, 0, 0.22));
+    radial-gradient(150% 62% at 50% -12%, var(--sheen), var(--sheen-low) 60%, transparent 61%),
+    linear-gradient(180deg, transparent 55%, var(--key-shade));
   box-shadow:
-    inset 0 1.5px 0.5px rgba(255, 255, 255, 0.5),
-    inset 0 -1px 1px rgba(255, 255, 255, 0.16),
-    inset 1px 0 1px rgba(255, 255, 255, 0.1),
-    inset -1px 0 1px rgba(255, 255, 255, 0.1),
-    inset 0 0 14px rgba(255, 255, 255, 0.06);
+    inset 0 1.5px 0.5px var(--rim-top),
+    inset 0 -1px 1px var(--rim-low),
+    inset 1px 0 1px var(--rim-side),
+    inset -1px 0 1px var(--rim-side),
+    inset 0 0 14px var(--sheen-low);
   /* #glass is the rim lens macros.js builds; it needs Chromium, which WebView2 is */
   backdrop-filter: url(#glass);
 }
@@ -659,8 +731,8 @@ body[data-page="macros"] { --accent: var(--ink-violet); }
   font-size: 46px;
   line-height: 1;
   font-variant-emoji: text;
-  color: var(--key);
-  text-shadow: 0 0 16px color-mix(in srgb, var(--key) 55%, transparent);
+  color: color-mix(in srgb, var(--key), var(--text) var(--key-deepen));
+  text-shadow: 0 0 calc(16px * var(--glow)) color-mix(in srgb, var(--key) 55%, transparent);
 }
 .macro__label {
   max-width: 100%;
@@ -669,7 +741,7 @@ body[data-page="macros"] { --accent: var(--ink-violet); }
   line-height: 1.15;
   text-align: center;
   overflow-wrap: anywhere;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+  text-shadow: var(--label-lift);
 }
 .macro__error {
   font-size: 14px;
