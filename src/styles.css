@@ -7,7 +7,7 @@
    Nothing is smaller than 14px. Colour rule: red belongs to the
    limit and is never a model.
 
-   Dark is the default; light keeps the same layout. Light inks are
+   Dark is the base palette and light overrides it, keeping the layout. Light inks are
    deeper shades of the same hues, since a pale amber line on white
    is not readable from across a desk. Inks stay 6-digit hex: the
    canvas graphs append an alpha byte to them.

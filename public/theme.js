@@ -6,11 +6,12 @@
   const KEY = "theme";
   const CHOICES = ["dark", "light", "system"];
   const system = matchMedia("(prefers-color-scheme: light)");
-  let choice = "dark";
+  // Until you pick one, follow Windows.
+  let choice = "system";
   try {
-    choice = localStorage.getItem(KEY) || "dark";
+    choice = localStorage.getItem(KEY) || "system";
   } catch {}
-  if (!CHOICES.includes(choice)) choice = "dark";
+  if (!CHOICES.includes(choice)) choice = "system";
 
   function apply() {
     const light = choice === "light" || (choice === "system" && system.matches);

@@ -51,7 +51,7 @@ A desk panel for a 5-inch, 800×480 touch display. It shows how much of your cur
 </tr>
 </table>
 
-The button in the header cycles dark, light, and system (follows Windows). The screenshots here follow your GitHub theme.
+The button in the header cycles dark, light, and system, which follows Windows and is where it starts. The screenshots here follow your GitHub theme.
 
 ## How it works
 
