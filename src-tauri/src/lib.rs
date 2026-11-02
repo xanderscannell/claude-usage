@@ -4,6 +4,7 @@ mod macros;
 mod oauth;
 mod settings;
 mod system;
+mod touch;
 mod usage;
 
 use blocks::Snapshot;
@@ -140,6 +141,12 @@ async fn run_macro(state: State<'_, App>, index: usize, label: String) -> Result
         .map_err(|e| e.to_string())?
 }
 
+/// A touch on the panel ended: put the mouse back where it was.
+#[tauri::command]
+fn touch_ended() {
+    touch::restore();
+}
+
 /// Sends the window back to the panel it belongs on. False means that
 /// display is not connected, so nothing moved.
 #[tauri::command]
@@ -159,11 +166,12 @@ pub fn run() {
                 let _ = win.show();
             }
             system::spawn(app.handle().clone());
+            touch::start();
             let dir = app.path().app_config_dir()?;
             *app.state::<App>().config_dir.lock().unwrap() = dir;
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![get_snapshot, align_window, get_macros, run_macro])
+        .invoke_handler(tauri::generate_handler![get_snapshot, align_window, get_macros, run_macro, touch_ended])
         .run(tauri::generate_context!())
         .expect("error while running claude-usage-monitor");
 }

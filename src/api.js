@@ -34,3 +34,8 @@ export async function runMacro(index, label) {
   if (!live) return;
   return call("run_macro", { index, label });
 }
+
+/* Windows moves the cursor to every touch; this asks for the mouse back. */
+export function touchEnded() {
+  if (live) call("touch_ended").catch(() => {});
+}

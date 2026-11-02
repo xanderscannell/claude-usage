@@ -1,4 +1,4 @@
-import { alignWindow, getSnapshot, live } from "./api.js";
+import { alignWindow, getSnapshot, live, touchEnded } from "./api.js";
 import { drawChart, UI_INKS } from "./chart.js";
 import { wireSystem } from "./system.js";
 import { wireMacros } from "./macros.js";
@@ -284,6 +284,10 @@ async function boot() {
   wirePager();
   wireSystem();
   wireMacros();
+  // Once every finger is up, so a swipe is not cut short mid-gesture.
+  const lifted = (e) => e.touches.length === 0 && touchEnded();
+  addEventListener("touchend", lifted, { passive: true });
+  addEventListener("touchcancel", lifted, { passive: true });
   if (!live) document.body.classList.add("is-demo");
   await poll();
   setInterval(poll, POLL_MS);

@@ -199,6 +199,11 @@ to run.
   granted no filesystem, shell, or HTTP plugin permissions — only window
   close/minimize/drag. Macros run on the Rust side, and only as macros.json
   describes them.
+- Windows moves the cursor to every touch. A low-level mouse hook
+  ([src-tauri/src/touch.rs](src-tauri/src/touch.rs)) remembers where the real
+  mouse last was, skipping the events Windows tags as made from touch, and puts
+  the cursor back once every finger lifts. Using the mouse on the panel itself is
+  unaffected.
 - Window chrome is drawn by the frontend (`decorations: false`), so the title rail
   is the drag region and carries its own minimize/close.
 - Window controls use `withGlobalTauri`, so there is no JS dependency on Tauri and
