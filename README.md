@@ -1,11 +1,80 @@
+<div align="center">
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/img/logo-dark.svg">
+  <img src="docs/img/logo-light.svg" alt="" width="96">
+</picture>
+
 # Claude Usage
 
-A fixed 800×480 desk panel that answers one question at a glance: **how much of the
-current 5-hour block is gone, and will I hit the wall before it resets?**
+### Your Claude limit, on a screen of its own.
 
-It reads Claude Code's own session logs for the shape of the curve, and Claude
-Code's own usage endpoint for the truth on top. No API keys, no configuration, and
-it still works with the network off.
+A desk panel for a 5-inch, 800×480 touch display. It shows how much of your current 5-hour block is gone and whether you'll hit the limit before it resets, next to your PC's vitals and a page of Stream Deck style buttons. No API keys and no setup: it reads what Claude Code already keeps on your machine, and it keeps working with the network off.
+
+![Tauri 2](https://img.shields.io/badge/app-Tauri%202-24C8D8?style=flat-square&logo=tauri&logoColor=white)
+![Rust](https://img.shields.io/badge/backend-Rust-121619?style=flat-square&logo=rust&logoColor=white)
+![JavaScript](https://img.shields.io/badge/frontend-plain%20JS-121619?style=flat-square&logo=javascript&logoColor=white)
+![Windows](https://img.shields.io/badge/platform-Windows-0078D4?style=flat-square&logo=windows&logoColor=white)
+![Display](https://img.shields.io/badge/display-800%C3%97480-121619?style=flat-square)
+
+[Three pages](#three-pages-one-swipe-apart) · [How it works](#how-it-works) · [Run it](#run-it-yourself) · [Macros](#set-up-your-macros) · [Under the hood](docs/how-it-works.md)
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/img/usage-dark.png">
+  <img src="docs/img/usage-light.png" alt="The Usage page: the current 5-hour block charted by model, a total line heading for the red limit line, and readouts of 87.9% used, 17.4% per hour, and the limit 42 minutes away" width="720">
+</picture>
+
+</div>
+
+## At a glance
+
+<table>
+<tr>
+<td align="center" width="33%"><h1>5 hours</h1>A block starts at your first message and resets five hours later, not on the hour. The panel charts the whole block, start to reset.</td>
+<td align="center" width="33%"><h1>0 API keys</h1>Nothing to paste in and nothing to calibrate. It reads Claude Code's own logs and the same endpoint <code>/usage</code> asks.</td>
+<td align="center" width="33%"><h1>14 px</h1>The smallest text on screen. Every page is built to be read from a few feet away.</td>
+</tr>
+</table>
+
+## Three pages, one swipe apart
+
+**Usage** (above) charts the current block, stacked by model. The bold line is the total, the dashed line is where your burn rate lands you, and the red line is the limit. If you're on pace to hit it, the chart marks the time. Tap a model to lift it out of the stack.
+
+<table>
+<tr>
+<td width="50%"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/img/system-dark.png"><img src="docs/img/system-light.png" alt="The System page: CPU and GPU load as large numbers, temperatures, memory and fan bars, and a live graph for each"></picture></td>
+<td width="50%"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/img/macros-dark.png"><img src="docs/img/macros-light.png" alt="The Macros page: fifteen glass keys in a five by three grid, each with a coloured icon and a label"></picture></td>
+</tr>
+<tr>
+<td><b>System.</b> CPU and GPU load, clocks, temperatures, memory, VRAM and fan, sampled every 1.5 seconds, with a live graph for each.</td>
+<td><b>Macros.</b> Glass keys over a lit screen, like a Stream Deck. Each one plays media, sends a shortcut, opens an app, or runs PowerShell, all from one JSON file.</td>
+</tr>
+</table>
+
+The button in the header cycles dark, light, and system (follows Windows). The screenshots here follow your GitHub theme.
+
+## How it works
+
+1. **Read.** Claude Code logs every exchange under `~/.claude/projects/`. The panel reads only what's new on each poll, drops the duplicate records that resumed sessions write (about half of them), and weights tokens by price, because limits track compute, not volume.
+2. **Ask.** It calls the endpoint Claude Code's `/usage` uses, with Claude Code's own login, read-only. That gives the true percentage and reset time, and dividing tokens by the percentage solves for your plan's limit.
+3. **Remember.** The last real limit and reset times are saved. Offline, the panel keeps using them instead of guessing, and the header says which source is in play: Live, Remembered, or Estimated.
+4. **Draw.** One block, start to reset: the pen sits at now, and the space to its right is the time you have left.
+
+```mermaid
+flowchart LR
+  L["Claude Code logs<br/>~/.claude/projects"] --> R["Rust backend<br/>dedupe, weight, find blocks"]
+  E["Usage endpoint<br/>the one /usage calls"] --> R
+  R <--> S[("Remembered limit<br/>and reset times")]
+  R -- "snapshot every 5 s" --> P["Panel<br/>Usage, System, Macros"]
+  H["sysinfo, NVML,<br/>LibreHardwareMonitor"] -- "stats every 1.5 s" --> P
+  M["macros.json"] --> R
+```
+
+The details, including how 100% is solved for and what the app is allowed to touch, are in **[How it works](docs/how-it-works.md)**.
+
+## Run it yourself
+
+You need Windows, [Node.js](https://nodejs.org), [Rust](https://rustup.rs), and Claude Code signed in on the same machine.
 
 ```bash
 npm install
@@ -15,149 +84,14 @@ npm run tauri build -- --no-bundle   # standalone exe; plain cargo builds load t
 cd src-tauri && cargo test
 ```
 
-## Where the numbers come from
+Optional extras for the System page:
 
-Claude Code appends every exchange to JSONL under `~/.claude/projects/`. Each
-assistant record carries the model, a timestamp, and the full token breakdown.
-Two things about that data are easy to get wrong, and both are handled:
+- **GPU readouts** need an NVIDIA card. Without one, the GPU card hides.
+- **CPU temperature** needs [LibreHardwareMonitor](https://github.com/LibreHardwareMonitor/LibreHardwareMonitor) running, so the panel itself never needs admin. Set it up once: run it (it asks for admin to load its driver), turn on Options → Remote Web Server → Run on the default port 8085, and Options → Run On Windows Startup. Without it the temperature hides.
 
-- **Half the records are duplicates.** Resuming or branching a session re-logs
-  requests it already wrote — on this machine, 2,450 of 4,896. Events are
-  deduplicated on `(requestId, message.id)`; skip that and every number roughly
-  doubles.
-- **Raw token counts are meaningless.** Cache reads run about 7× everything else
-  combined, so an unweighted total is really just a cache-read counter. Tokens are
-  weighted into input-equivalents at the published price ratios — output 5×, cache
-  writes 1.25×/2×, cache reads 0.1× — because limits track compute, not volume.
+## Set up your macros
 
-Files are re-read incrementally: session logs only grow, so each poll parses just
-the bytes appended since the last one.
-
-## Blocks, not a rolling window
-
-The 5-hour limit is not a rolling window. A block opens at a message sent outside
-the previous block, runs five hours **from that instant**, then resets — which is
-why `/usage` can name a reset time. So the paper shows **one block end to end**:
-the pen sits at now, and the blank paper to its right is the time you have left.
-The dashed line is where the current burn rate lands you, and if it crosses the
-ceiling the recorder marks the clock time it happens.
-
-Boundaries are **not** hour aligned — this machine's endpoint reports five-hour
-resets at ten past — and while usage continues each block chains straight on from
-the last, so the edge normally falls in a silence with no message to mark it.
-That is why the reset instant is [remembered](#where-100-comes-from): it is the
-one fact about the axis the local logs cannot yield.
-
-## Where 100% comes from
-
-Nothing on disk records your plan's ceiling. The endpoint reports the percentage
-spent, so dividing our own token count by it solves for the limit — which means
-**there is nothing to calibrate**. Three sources, in order of trust; the title rail
-and footer always say which is in play.
-
-**Live.** Claude Code renders `/usage` by calling `GET /api/oauth/usage` with the
-OAuth token in `~/.claude/.credentials.json`; the panel reads the same endpoint.
-True percentage, true reset instant, solved limit. The reported reset lands a
-fraction either side of the real boundary — both `07:59:59.9` and `08:00:00.1`
-show up for the same edge — so it is snapped to the nearest minute. Truncating
-that to an hour for an axis label loses a whole hour.
-
-**Remembered.** The solved limit **and both reset instants** are kept, so losing
-the network drops the panel to the last known real limit rather than to a guess,
-and leaves the time axis where live had it. While a remembered reset is still in
-the future it pins the block outright; once it passes, the block chain restarts
-from it rather than from the top of the log. Re-deriving the boundary from the
-log alone had put the offline axis 2h10m from the live one, and swept in usage
-the server had already reset away.
-
-**Estimated.** Before any live reading has ever succeeded, it scales to the
-busiest block on record. On this machine that guessed 17.1M against a real 6.31M —
-a 2.7x error — so treat it as a shape, not a number. The title rail says so.
-
-There is deliberately **no hand-entered fallback**. Reading a percentage out of
-`/usage` needs the same token and the same network the endpoint itself needs, so
-anything a person could type in, the app could have fetched. A calibration form
-would only ever be a slower path to a number already in reach.
-
-Constraints on the credential path:
-
-- **Read only.** The credentials file is never written. Refresh tokens normally
-  rotate, so refreshing here without persisting could invalidate the CLI's own
-  login. An expired token is reported, not repaired — run any Claude Code command
-  and it refreshes itself.
-- **The token goes to one host** and is never logged, returned through a command,
-  or put in an error message. A failed parse names only the windows we looked for.
-- **Every failure is soft**, cached for a minute on success and two on failure,
-  or for whatever `Retry-After` asks when throttled. The endpoint is undocumented:
-  it can change or vanish, and the panel has to keep working from local logs when
-  it does.
-- **Failures are named for what they are.** Only a response we cannot parse reports
-  that the endpoint changed; a 429 says it is being checked too often and a 5xx
-  reports the status. Conflating those sends you hunting a break that is not there.
-- `HTTPS_PROXY` and friends are honoured, so a proxied network does not become the
-  one case where `/usage` works and the panel does not.
-
-## Design
-
-A rolling-window recorder was the wrong metaphor, but a chart recorder was the
-right one. The rules that carry information:
-
-- **Red belongs to the limit**: the limit line, over-range band, and the
-  projected crossing. A model is never red. If something on the chart is red, it
-  is telling you about the ceiling.
-- **Each model is a coloured series.** Its wash fades to the baseline and its
-  boundary glows, and the same colour marks its dot in the legend.
-- **The total is its own white line and always draws.** Toggling a model lifts its
-  wash but leaves the total line, so the gap you open is that model's contribution.
-- **One model means no legend.** A single model's percentage *is* the hero number,
-  so the legend collapses and the chart takes the space.
-
-Every page shares one look, after ponytail's board: black ground, quiet cards, a
-coloured dot naming each series, numbers set large. The panel is a 5-inch display
-read from a few feet away, so no text is smaller than 14px. Type is Geist for
-labels and Geist Mono for numbers. The theme button in the header cycles dark,
-light, and system (follows Windows); light mode uses deeper shades of each colour
-so lines and icons stay readable on white. One motion moment on load;
-`prefers-reduced-motion` turns it all off.
-
-## Layout
-
-| | |
-| --- | --- |
-| [src/chart.js](src/chart.js) | the usage chart: scale, series, projection |
-| [src/main.js](src/main.js) | polling, readouts, status |
-| [src/api.js](src/api.js) | IPC, with a synthetic fallback for browser dev |
-| [src-tauri/src/usage.rs](src-tauri/src/usage.rs) | log scanning, dedup, weighting |
-| [src-tauri/src/blocks.rs](src-tauri/src/blocks.rs) | block detection, snapshot |
-| [src-tauri/src/oauth.rs](src-tauri/src/oauth.rs) | live usage endpoint |
-| [src-tauri/src/settings.rs](src-tauri/src/settings.rs) | remembers the solved limit and the reset instants |
-| [src/system.js](src/system.js) | the System page: readouts and sparklines |
-| [src-tauri/src/system.rs](src-tauri/src/system.rs) | CPU, memory and GPU sampling, pushed as `stats` events |
-| [src/macros.js](src/macros.js) | the Macros page grid |
-| [src-tauri/src/macros.rs](src-tauri/src/macros.rs) | reads macros.json and runs a button's action |
-
-## System page
-
-Swipe right from the usage page. It samples every 1.5 s:
-
-- **CPU load, RAM, swap** from `sysinfo`.
-- **CPU clock** from the Windows `% Processor Performance` counter, scaled from
-  the base clock, so it follows boost. Elsewhere it is `sysinfo`'s figure.
-- **GPU** (load, clock, power, temperature, VRAM, fan) from NVML, which ships
-  with the NVIDIA driver. With no NVIDIA GPU the row hides.
-- **CPU temperature.** Windows only exposes it to tools with a kernel driver, so
-  the app reads it from [LibreHardwareMonitor](https://github.com/LibreHardwareMonitor/LibreHardwareMonitor)
-  when that is running, and never needs admin itself. Set it up once: run it
-  (it asks for admin to load its driver), turn on Options → Remote Web Server
-  → Run on the default port 8085, and Options → Run On Windows Startup. Without
-  it the temperature line hides. On Linux `sysinfo` reads it directly.
-
-## Macros page
-
-Swipe right twice. The buttons come from `macros.json` in
-`%APPDATA%\dev.xander.claude-usage`, written with a starter set on first run.
-Saving the file updates the page within two seconds. A mistake shows on the
-button it belongs to, or in place of the grid if the file will not parse.
+The buttons come from `macros.json` in `%APPDATA%\dev.xander.claude-usage`, written with a starter set on first run. Saving the file updates the page within two seconds. A mistake shows on the button it belongs to, or in place of the grid if the file will not parse.
 
 ```json
 {
@@ -172,52 +106,23 @@ button it belongs to, or in place of the grid if the file will not parse.
 }
 ```
 
-Each button has a `label`, an optional `icon` (any text; symbols such as ⏯ ✂ ▦
-render in the button's colour) and `color`, and exactly one action:
+Each button has a `label`, an optional `icon` (any text; symbols such as ⏯ ✂ ▦ render in the button's colour) and `color`, and exactly one action:
 
-| | |
+| Action | What it does |
 | --- | --- |
 | `media` | `play_pause`, `next`, `previous`, `stop`, `volume_up`, `volume_down`, `mute` |
 | `keys` | a combo such as `ctrl+shift+m`: `ctrl` `shift` `alt` `win`, letters, digits, `f1`-`f24`, `enter` `esc` `tab` `space` `backspace` `delete` `insert` `home` `end` `pageup` `pagedown` `up` `down` `left` `right` `printscreen` `plus` `minus` |
 | `open` | a program, file, folder or URL, as if double-clicked; `args` passes arguments to a program |
 | `run` | a PowerShell command, run hidden |
 
-Backslashes in paths are doubled, as JSON requires. `Set-AudioDevice` above comes
-from the `AudioDeviceCmdlets` module (`Install-Module AudioDeviceCmdlets`).
+Backslashes in paths are doubled, as JSON requires. `Set-AudioDevice` above comes from the `AudioDeviceCmdlets` module (`Install-Module AudioDeviceCmdlets`).
 
-The window cannot take focus (`focusable: false`), so a tap leaves keyboard focus
-with the app you were using and `keys` lands there. It also means the arrow
-keys no longer turn pages. Windows will not let the panel type into an app
-running as administrator unless the panel runs as administrator too.
+The window cannot take focus, so a tap leaves keyboard focus with the app you were using and `keys` lands there. It also means the arrow keys don't turn pages; swipe instead. Windows will not let the panel type into an app running as administrator unless the panel runs as administrator too.
 
-The page only ever sends a button's position and label; the action is read
-from the file on the Rust side, so nothing in the webview can name a command
-to run.
+The page only ever sends a button's position and label. The action is read from the file on the Rust side, so nothing in the webview can name a command to run.
 
-## Notes
+## Credits
 
-- The webview runs under a strict CSP: `script-src 'self'`, `object-src 'none'`,
-  and network limited to the IPC channel plus Google Fonts. `style-src` still
-  allows `'unsafe-inline'` because Vite injects `<style>` blocks in dev; vendoring
-  the fonts would let that come out too. `freezePrototype` is on, and the app is
-  granted no filesystem, shell, or HTTP plugin permissions — only window
-  close/minimize/drag. Macros run on the Rust side, and only as macros.json
-  describes them.
-- Windows moves the cursor to every touch. A low-level mouse hook
-  ([src-tauri/src/touch.rs](src-tauri/src/touch.rs)) remembers where the real
-  mouse last was, skipping the events Windows tags as made from touch, and puts
-  the cursor back once every finger lifts. Using the mouse on the panel itself is
-  unaffected.
-- Window chrome is drawn by the frontend (`decorations: false`), so the title rail
-  is the drag region and carries its own minimize/close.
-- Window controls use `withGlobalTauri`, so there is no JS dependency on Tauri and
-  the panel still runs in a plain browser.
-- Fonts come from Google Fonts. Vendor them into `src/` before shipping so the
-  panel renders offline.
-- Weekly usage comes from the endpoint's `seven_day` window, with its real reset
-  time. Without live data it falls back to a rolling 7-day total labelled `7-DAY`
-  and claims no reset schedule, because the logs do not record one.
-- `cargo test` runs fully offline. The two tests that touch the network are
-  `#[ignore]`d: `cargo test -- --ignored --nocapture` prints live percentages
-  (`live_fetch`) and the raw rate-limit subtrees (`live_shape`), which is where to
-  start if the endpoint's shape ever changes.
+- Type is [Geist and Geist Mono](https://vercel.com/font), under the SIL Open Font License.
+- CPU temperature comes from [LibreHardwareMonitor](https://github.com/LibreHardwareMonitor/LibreHardwareMonitor).
+- An unofficial tool, not made by or affiliated with Anthropic.
