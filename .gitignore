@@ -2,6 +2,7 @@ node_modules/
 dist/
 src-tauri/target/
 src-tauri/gen/schemas/
+release/
 
 # never let a credential or secret land in this repo
 .env
