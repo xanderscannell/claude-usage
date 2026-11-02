@@ -74,7 +74,8 @@ function render(s) {
   // Windows only exposes CPU temperature to admin tools, so hide it rather than show a blank.
   $("cpu-temp").hidden = s.cpuTemp == null;
   if (s.cpuTemp != null) $("cpu-temp").textContent = `${Math.round(s.cpuTemp)}°`;
-  if (s.cpuBrand) $("cpu-name").textContent = s.cpuBrand;
+  // "AMD Ryzen 7 5800X 8-Core Processor" -> "AMD Ryzen 7 5800X", so the model fits
+  if (s.cpuBrand) $("cpu-name").textContent = s.cpuBrand.replace(/\((R|TM)\)/g, "").replace(/\s+\d+-Core Processor$/i, "");
   $("cpu-ram").textContent = memPair(s.memUsed, s.memTotal);
   bar("bar-ram", pct(s.memUsed, s.memTotal));
   $("cpu-swap").textContent = s.swapTotal > 0 ? memPair(s.swapUsed, s.swapTotal) : "—";

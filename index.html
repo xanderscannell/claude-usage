@@ -100,46 +100,48 @@
   <section class="page sys" data-page="system" aria-label="System">
     <div class="sys-row" id="cpu-row" style="--nib: var(--ui-blue)">
       <h2 class="sys-spine">CPU</h2>
-      <div class="readout readout--hero sys-hero">
-        <span class="readout__value"><span id="cpu-pct">--</span><span class="readout__unit">%</span></span>
-        <span class="silk readout__label" id="cpu-clock">-- GHz</span>
+      <div class="sys-hero">
+        <span class="sys-label">Load</span>
+        <span class="sys-num"><span id="cpu-pct">--</span><span class="sys-unit">%</span></span>
+        <span class="sys-sub" id="cpu-clock">-- GHz</span>
       </div>
       <div class="sys-meters">
         <span class="sys-temp" id="cpu-temp">--°</span>
         <div class="sys-meter">
-          <span class="silk">RAM</span><span class="silk"><b id="cpu-ram">--</b></span>
-          <span class="pen-ch__bar"><i id="bar-ram"></i></span>
+          <span class="sys-label">RAM</span><span class="sys-val" id="cpu-ram">--</span>
+          <span class="sys-track"><i id="bar-ram"></i></span>
         </div>
         <div class="sys-meter">
-          <span class="silk">Swap</span><span class="silk"><b id="cpu-swap">--</b></span>
-          <span class="pen-ch__bar"><i id="bar-swap"></i></span>
+          <span class="sys-label">Swap</span><span class="sys-val" id="cpu-swap">--</span>
+          <span class="sys-track"><i id="bar-swap"></i></span>
         </div>
       </div>
       <div class="sys-graph">
-        <span class="silk silk--dim sys-name" id="cpu-name">Processor</span>
+        <span class="sys-name" id="cpu-name">Processor</span>
         <div class="sys-paper"><canvas id="cpu-canvas" aria-hidden="true"></canvas></div>
       </div>
     </div>
 
     <div class="sys-row" id="gpu-row" style="--nib: var(--ui-violet)" hidden>
       <h2 class="sys-spine">GPU</h2>
-      <div class="readout readout--hero sys-hero">
-        <span class="readout__value"><span id="gpu-pct">--</span><span class="readout__unit">%</span></span>
-        <span class="silk readout__label" id="gpu-clock">-- MHz</span>
+      <div class="sys-hero">
+        <span class="sys-label">Load</span>
+        <span class="sys-num"><span id="gpu-pct">--</span><span class="sys-unit">%</span></span>
+        <span class="sys-sub" id="gpu-clock">-- MHz</span>
       </div>
       <div class="sys-meters">
         <span class="sys-temp" id="gpu-temp">--°</span>
         <div class="sys-meter">
-          <span class="silk">VRAM</span><span class="silk"><b id="gpu-vram">--</b></span>
-          <span class="pen-ch__bar"><i id="bar-vram"></i></span>
+          <span class="sys-label">VRAM</span><span class="sys-val" id="gpu-vram">--</span>
+          <span class="sys-track"><i id="bar-vram"></i></span>
         </div>
         <div class="sys-meter">
-          <span class="silk">Fan</span><span class="silk"><b id="gpu-fan">--</b></span>
-          <span class="pen-ch__bar"><i id="bar-fan"></i></span>
+          <span class="sys-label">Fan</span><span class="sys-val" id="gpu-fan">--</span>
+          <span class="sys-track"><i id="bar-fan"></i></span>
         </div>
       </div>
       <div class="sys-graph">
-        <span class="silk silk--dim sys-name" id="gpu-name">Graphics</span>
+        <span class="sys-name" id="gpu-name">Graphics</span>
         <div class="sys-paper"><canvas id="gpu-canvas" aria-hidden="true"></canvas></div>
       </div>
     </div>
