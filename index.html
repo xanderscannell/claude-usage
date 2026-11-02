@@ -10,7 +10,8 @@
 <link rel="stylesheet" href="/src/styles.css" />
 </head>
 <body>
-  <div class="case">
+  <div class="pager" id="pager">
+  <div class="case page" aria-label="Usage">
 
     <header class="rail" data-tauri-drag-region>
       <div class="rail__id" data-tauri-drag-region>
@@ -80,6 +81,12 @@
     </footer>
 
   </div>
+
+  <section class="page page--todo" aria-label="System"><p class="silk">System monitor</p></section>
+  <section class="page page--todo" aria-label="Macros"><p class="silk">Macros</p></section>
+  </div>
+
+  <nav class="dots" id="dots" aria-label="Pages"></nav>
 
   <script type="module" src="/src/main.js"></script>
 </body>

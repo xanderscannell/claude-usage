@@ -209,6 +209,51 @@ async function align(btn) {
   btn.classList.add("is-miss");
 }
 
+/* -- pages --------------------------------------------------------- */
+
+function wirePager() {
+  const pager = $("pager");
+  const pages = [...pager.children];
+  const dots = $("dots");
+  const at = () => Math.round(pager.scrollLeft / pager.clientWidth);
+  const go = (i) => pager.scrollTo({
+    left: Math.max(0, Math.min(pages.length - 1, i)) * pager.clientWidth,
+    behavior: reduced ? "auto" : "smooth",
+  });
+
+  dots.replaceChildren(...pages.map((p, i) => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "dot";
+    b.setAttribute("aria-label", `${p.getAttribute("aria-label")} page`);
+    b.addEventListener("click", () => go(i));
+    return b;
+  }));
+  const mark = () => [...dots.children].forEach((d, i) => d.setAttribute("aria-current", String(i === at())));
+  pager.addEventListener("scroll", mark, { passive: true });
+  mark();
+
+  addEventListener("keydown", (e) => {
+    const step = { ArrowLeft: -1, ArrowRight: 1 }[e.key];
+    if (!step) return;
+    e.preventDefault();
+    go(at() + step);
+  });
+
+  // Touch swipes scroll natively; a mouse cannot, so a drag stands in.
+  // Buttons and the window's drag region keep their own meaning.
+  let downX = null;
+  pager.addEventListener("pointerdown", (e) => {
+    if (e.pointerType === "mouse" && !e.target.closest("button, [data-tauri-drag-region]")) downX = e.clientX;
+  });
+  addEventListener("pointerup", (e) => {
+    if (downX == null) return;
+    const dx = e.clientX - downX;
+    downX = null;
+    if (Math.abs(dx) > 60) go(at() - Math.sign(dx));
+  });
+}
+
 /* -- boot ---------------------------------------------------------- */
 
 async function poll() {
@@ -225,6 +270,7 @@ async function poll() {
 
 async function boot() {
   wireWindowControls();
+  wirePager();
   if (!live) document.body.classList.add("is-demo");
   await poll();
   setInterval(poll, POLL_MS);
