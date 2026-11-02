@@ -336,6 +336,7 @@ dependencies = [
  "tauri",
  "tauri-build",
  "ureq",
+ "windows 0.61.3",
 ]
 
 [[package]]

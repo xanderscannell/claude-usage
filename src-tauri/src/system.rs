@@ -64,6 +64,75 @@ fn cpu_temp(components: &Components) -> Option<f32> {
         .or_else(|| pick("cpu"))
 }
 
+/// Live CPU speed as a percentage of base clock, from the Windows
+/// `% Processor Performance` counter (over 100 while boosting). sysinfo
+/// only reports the base clock on Windows, so this is what makes it move.
+#[cfg(windows)]
+mod perf {
+    use windows::core::w;
+    use windows::Win32::System::Performance::*;
+
+    /// From pdh.h; missing from the windows crate. Without it PDH caps
+    /// percentages at 100, which would hide every boost.
+    const PDH_FMT_NOCAP100: u32 = 0x8000;
+
+    pub struct CpuPerf {
+        query: PDH_HQUERY,
+        counter: PDH_HCOUNTER,
+    }
+
+    impl CpuPerf {
+        pub fn new() -> Option<Self> {
+            let mut query = PDH_HQUERY::default();
+            unsafe {
+                if PdhOpenQueryW(None, 0, &mut query) != 0 {
+                    return None;
+                }
+                // Owned from here, so an early return closes the query.
+                let mut me = Self { query, counter: PDH_HCOUNTER::default() };
+                let path = w!("\\Processor Information(_Total)\\% Processor Performance");
+                if PdhAddEnglishCounterW(query, path, 0, &mut me.counter) != 0 {
+                    return None;
+                }
+                // A rate counter needs two collections; this is the first.
+                PdhCollectQueryData(query);
+                Some(me)
+            }
+        }
+
+        pub fn percent(&self) -> Option<f64> {
+            let mut value = PDH_FMT_COUNTERVALUE::default();
+            unsafe {
+                if PdhCollectQueryData(self.query) != 0 {
+                    return None;
+                }
+                let fmt = PDH_FMT(PDH_FMT_DOUBLE.0 | PDH_FMT_NOCAP100);
+                if PdhGetFormattedCounterValue(self.counter, fmt, None, &mut value) != 0
+                    || value.CStatus != PDH_CSTATUS_VALID_DATA
+                {
+                    return None;
+                }
+                Some(value.Anonymous.doubleValue).filter(|p| *p > 0.0)
+            }
+        }
+    }
+
+    impl Drop for CpuPerf {
+        fn drop(&mut self) {
+            unsafe { PdhCloseQuery(self.query) };
+        }
+    }
+}
+
+#[cfg(not(windows))]
+mod perf {
+    pub struct CpuPerf;
+    impl CpuPerf {
+        pub fn new() -> Option<Self> { None }
+        pub fn percent(&self) -> Option<f64> { None }
+    }
+}
+
 fn gpu(nvml: &Nvml) -> Option<Gpu> {
     let dev = nvml.device_by_index(0).ok()?;
     let mem = dev.memory_info().ok()?;
@@ -80,16 +149,21 @@ fn gpu(nvml: &Nvml) -> Option<Gpu> {
     })
 }
 
-fn sample(sys: &mut System, components: &mut Components, nvml: Option<&Nvml>) -> Stats {
+fn sample(sys: &mut System, components: &mut Components, nvml: Option<&Nvml>, perf: Option<&perf::CpuPerf>) -> Stats {
     sys.refresh_cpu_all();
     sys.refresh_memory();
     components.refresh(true);
 
     let cpus = sys.cpus();
+    // the fastest core is the most representative "current clock"; on
+    // Windows that is the base clock, so the counter scales it live
+    let base_mhz = cpus.iter().map(|c| c.frequency()).max().unwrap_or(0);
+    let cpu_freq_mhz = perf
+        .and_then(|p| p.percent())
+        .map_or(base_mhz, |pct| (base_mhz as f64 * pct / 100.0).round() as u64);
     Stats {
         cpu_usage: sys.global_cpu_usage(),
-        // the fastest core is the most representative "current clock"
-        cpu_freq_mhz: cpus.iter().map(|c| c.frequency()).max().unwrap_or(0),
+        cpu_freq_mhz,
         cpu_brand: cpus.first().map(|c| c.brand().trim().to_string()).unwrap_or_default(),
         cpu_temp: cpu_temp(components),
         mem_total: sys.total_memory(),
@@ -106,8 +180,10 @@ pub fn spawn(handle: AppHandle) {
         let mut components = Components::new_with_refreshed_list();
         // NVML ships with the NVIDIA driver; absent elsewhere, so the GPU row hides.
         let nvml = Nvml::init().ok();
+        let perf = perf::CpuPerf::new();
         loop {
-            let _ = handle.emit("stats", sample(&mut sys, &mut components, nvml.as_ref()));
+            let stats = sample(&mut sys, &mut components, nvml.as_ref(), perf.as_ref());
+            let _ = handle.emit("stats", stats);
             thread::sleep(Duration::from_millis(REFRESH_MS));
         }
     });
@@ -121,10 +197,20 @@ mod tests {
     fn samples_this_machine() {
         let mut sys = System::new_all();
         let mut components = Components::new_with_refreshed_list();
-        let s = sample(&mut sys, &mut components, Nvml::init().ok().as_ref());
+        let s = sample(&mut sys, &mut components, Nvml::init().ok().as_ref(), None);
         assert!(s.mem_total > 0 && s.mem_used <= s.mem_total);
         assert!((0.0..=100.0).contains(&s.cpu_usage));
         assert!(s.cpu_temp.map_or(true, valid_temp));
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn reads_live_cpu_performance() {
+        let perf = perf::CpuPerf::new().expect("open the % Processor Performance counter");
+        thread::sleep(Duration::from_millis(500));
+        let pct = perf.percent().expect("a second collection yields a value");
+        // idle cores park well below base, boost runs past it
+        assert!((5.0..300.0).contains(&pct), "implausible {pct}%");
     }
 
     #[test]
