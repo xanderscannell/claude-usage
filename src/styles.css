@@ -65,12 +65,30 @@ html, body {
 
 /* -- pages -------------------------------------------------- */
 
+/* Each page's theme. Registered so the title rail fades between them. */
+@property --accent {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #C2513A;
+}
+body {
+  position: relative;
+  display: grid;
+  grid-template-rows: 38px 1fr;
+  transition: --accent 400ms ease;
+}
+body[data-page="usage"]  { --accent: #C2513A; }
+body[data-page="system"] { --accent: #5B8FDD; }
+body[data-page="macros"] { --accent: #9B7BD4; }
+
+/* The rail's flex/grid displays would otherwise beat [hidden]. */
+.rail [hidden] { display: none; }
+
 /* Scroll-snap gives touch swipes for free; overscroll-behavior stops a
    swipe past the last page from triggering WebView back-navigation. */
 .pager {
   display: flex;
-  width: 800px;
-  height: 480px;
+  min-height: 0;
   overflow-x: auto;
   overflow-y: hidden;
   scroll-snap-type: x mandatory;
@@ -81,14 +99,13 @@ html, body {
 
 .page {
   flex: 0 0 800px;
-  height: 480px;
   scroll-snap-align: start;
   scroll-snap-stop: always;
 }
 .page--todo { display: grid; place-items: center; }
 
 .dots {
-  position: fixed;
+  position: absolute;
   left: 50%;
   bottom: 2px;
   transform: translateX(-50%);
@@ -109,21 +126,19 @@ html, body {
   border-radius: 50%;
   background: var(--silk-dim);
 }
-.dot[aria-current="true"]::after { background: var(--silk-bright); }
+.dot[aria-current="true"]::after { background: var(--accent); }
 
 /* -- shell -------------------------------------------------- */
 
 .case {
-  width: 800px;
-  height: 480px;
   display: grid;
-  grid-template-rows: 38px 1fr 66px 32px;
+  grid-template-rows: 1fr 66px 32px;
 }
 
 /* A single pen's percentage is the total, so the legend would only
    restate the hero readout. Drop it and let the paper have the space. */
 .case--solo {
-  grid-template-rows: 38px 1fr 32px;
+  grid-template-rows: 1fr 32px;
 }
 .case--solo .pens { display: none; 
   background: linear-gradient(180deg, #191D23 0%, var(--case) 34%, #101216 100%);
@@ -162,11 +177,16 @@ html, body {
   min-width: 0;
 }
 
+/* The page's accent runs along the title rail's lower edge. */
+header.rail {
+  border-bottom-color: color-mix(in srgb, var(--accent) 55%, var(--panel-edge));
+}
+
 .rec {
   width: 7px; height: 7px;
   border-radius: 50%;
-  background: var(--grid);
-  box-shadow: 0 0 7px rgba(194, 81, 58, 0.85);
+  background: var(--accent);
+  box-shadow: 0 0 7px color-mix(in srgb, var(--accent) 85%, transparent);
   align-self: center;
   animation: blink 1.6s steps(1, end) infinite;
 }

@@ -167,7 +167,7 @@ function render() {
         ? `Last known limit ${compact(snap.limitTokens)}`
         : "Estimated · scaled to your busiest block");
   // The lamp records live telemetry, so it goes dark when there is none.
-  document.querySelector(".rec").classList.toggle("rec--dark", snap.source !== "live");
+  $("usage-rec").classList.toggle("rec--dark", snap.source !== "live");
 
   svg.setAttribute(
     "aria-label",
@@ -229,7 +229,16 @@ function wirePager() {
     b.addEventListener("click", () => go(i));
     return b;
   }));
-  const mark = () => [...dots.children].forEach((d, i) => d.setAttribute("aria-current", String(i === at())));
+  const railItems = document.querySelectorAll("header [data-for]");
+  const mark = () => {
+    const i = at();
+    [...dots.children].forEach((d, n) => d.setAttribute("aria-current", String(n === i)));
+    const id = pages[i]?.dataset.page;
+    if (!id || document.body.dataset.page === id) return;
+    // The title rail switches over once a swipe passes halfway.
+    document.body.dataset.page = id;
+    for (const el of railItems) el.hidden = el.dataset.for !== id;
+  };
   pager.addEventListener("scroll", mark, { passive: true });
   mark();
 

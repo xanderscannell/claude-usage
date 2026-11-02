@@ -9,18 +9,25 @@
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,300..900&family=Martian+Mono:wdth,wght@75..112.5,300..700&display=swap" rel="stylesheet" />
 <link rel="stylesheet" href="/src/styles.css" />
 </head>
-<body>
-  <div class="pager" id="pager">
-  <div class="case page" aria-label="Usage">
-
+<body data-page="usage">
+    <!-- Shared by every page. Items marked data-for show only while that
+         page is in view; the rest (window controls) are always there. -->
     <header class="rail" data-tauri-drag-region>
       <div class="rail__id" data-tauri-drag-region>
-        <span class="rec" aria-hidden="true"></span>
-        <h1 class="wordmark">Claude Usage</h1>
-        <span class="silk silk--dim unit" id="unit-mark">5-hour block</span>
+        <span class="rec" id="usage-rec" data-for="usage" aria-hidden="true"></span>
+        <h1 class="wordmark" data-for="usage">Claude Usage</h1>
+        <span class="silk silk--dim unit" id="unit-mark" data-for="usage">5-hour block</span>
+
+        <span class="rec" data-for="system" aria-hidden="true" hidden></span>
+        <h1 class="wordmark" data-for="system" hidden>System</h1>
+        <span class="silk silk--dim unit" data-for="system" hidden>CPU · GPU · Memory</span>
+
+        <span class="rec" data-for="macros" aria-hidden="true" hidden></span>
+        <h1 class="wordmark" data-for="macros" hidden>Macros</h1>
+        <span class="silk silk--dim unit" data-for="macros" hidden>Tap to run</span>
       </div>
 
-      <div class="rail__reset" data-tauri-drag-region>
+      <div class="rail__reset" data-for="usage" data-tauri-drag-region>
         <span class="silk silk--dim" id="reset-label">Block resets in</span>
         <span class="clock" id="reset-clock">—</span>
       </div>
@@ -37,6 +44,9 @@
         </button>
       </div>
     </header>
+
+  <div class="pager" id="pager">
+  <div class="case page" data-page="usage" aria-label="Usage">
 
     <main class="deck">
       <section class="recorder" aria-labelledby="recorder-title">
@@ -82,8 +92,8 @@
 
   </div>
 
-  <section class="page page--todo" aria-label="System"><p class="silk">System monitor</p></section>
-  <section class="page page--todo" aria-label="Macros"><p class="silk">Macros</p></section>
+  <section class="page page--todo" data-page="system" aria-label="System"><p class="silk">System monitor</p></section>
+  <section class="page page--todo" data-page="macros" aria-label="Macros"><p class="silk">Macros</p></section>
   </div>
 
   <nav class="dots" id="dots" aria-label="Pages"></nav>
