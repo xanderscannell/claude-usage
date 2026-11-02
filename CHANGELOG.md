@@ -4,7 +4,7 @@ All notable changes to Claude Usage are recorded here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## 1.0.0 - 2026-11-02
+## [1.0.0] - 2026-11-02
 
 The first release.
 
@@ -63,3 +63,5 @@ The first release.
   and is never logged or shown.
 - The page names a macro by position and label only; what it runs is read from
   `macros.json` on the Rust side.
+
+[1.0.0]: https://github.com/xanderscannell/claude-usage/releases/tag/v1.0.0

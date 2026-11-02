@@ -74,9 +74,11 @@ The details, including how 100% is solved for and what the app is allowed to tou
 
 ## Run it yourself
 
-You need Windows, [Node.js](https://nodejs.org), [Rust](https://rustup.rs), and Claude Code signed in on the same machine.
+To install it, download the latest installer from [Releases](https://github.com/xanderscannell/claude-usage/releases). To build it, you need Windows, [Node.js](https://nodejs.org), [Rust](https://rustup.rs), and Claude Code signed in on the same machine.
 
 ```bash
+git clone https://github.com/xanderscannell/claude-usage.git
+cd claude-usage
 npm install
 npm run tauri dev     # the panel
 npm run dev           # frontend only, on synthetic data
